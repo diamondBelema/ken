@@ -698,6 +698,97 @@ When creating content for ken, verify:
 - [ ] Concept summaries: `## <concept-id>:summary`
 - [ ] Card notes: `## Notes: <card-id>`
 
+### Validate
+- [ ] Run `ken lint <subject>` — exit code must be 0
+- [ ] Fix all errors before handing off (warnings are OK)
+
+---
+
+## Validating Content with ken lint
+
+After generating content, always run `ken lint` before handing off to a human. This catches parse errors, broken references, and content mistakes that would otherwise only surface when someone tries to study.
+
+### Usage
+
+```bash
+ken lint <subject>     # lint one subject
+ken lint               # lint all subjects
+ken lint --json        # machine-readable JSON output
+```
+
+### Exit Codes
+
+- **Exit 0**: No errors (warnings are OK — content is studyable)
+- **Exit 1**: Has errors — must fix before content is usable
+
+This matters for agent pipelines: `ken lint biochemistry && ken flashcards biochemistry` will only launch the TUI if lint passed.
+
+### What It Checks
+
+| Check | Severity | What It Catches |
+|-------|----------|-----------------|
+| Parse errors | error | Bad YAML, missing `---`, wrong `type`, missing required fields |
+| Duplicate IDs | error | Same ID used in multiple files (lists all locations) |
+| Orphaned concept_id | error | Flashcard/question references a concept that doesn't exist |
+| Broken parent_id | error | Concept parent doesn't match any known concept |
+| Parent cycles | error | Concept A → B → A (infinite loop) |
+| Empty required fields | error | Card with no front/back, question with no text/answer |
+| Unknown quiz type | error | Not `mcq`, `true_false`, or `fill_blank` |
+| Missing MCQ options | error | Fewer than 2 options |
+| Diagram file missing | error | `file:` path doesn't exist |
+| Link with empty URL | error | Link entry has no URL |
+| Non-http link | warning | URL doesn't start with `http://` or `https://` |
+| Unreferenced concept | warning | No cards or quiz questions link to this concept |
+| Diagram with no source | warning | Diagram entry has neither `source` nor `file` |
+| Empty subject | warning | No content files at all |
+
+### Example Output
+
+```
+biochemistry
+  concepts/glycolysis-tca.md
+     warning [c-pfk1] concept 'c-pfk1' has no cards or quiz questions — its confidence will never update from study
+  quizzes/glycolysis-tca.md
+      error failed to parse YAML frontmatter: yaml: line 93: could not find expected ':'
+
+1 error · 1 warning across 1 subject
+```
+
+### JSON Output (for agents)
+
+```bash
+ken lint --json
+```
+
+Returns a `Report` (single subject) or `[]Report` (all subjects) as indented JSON:
+
+```json
+{
+  "Subject": "biochemistry",
+  "Issues": [
+    {
+      "Severity": 0,
+      "File": "quizzes/glycolysis-tca.md",
+      "ID": "",
+      "Message": "failed to parse YAML frontmatter: ..."
+    }
+  ]
+}
+```
+
+Severity values: `0` = error, `1` = warning, `2` = info.
+
+### Agent Self-Check Workflow
+
+```
+1. Generate content files
+2. ken lint <subject>          # check for errors
+3. If exit 0 → done, hand off
+4. If exit 1 → read the error messages, fix, re-run lint
+```
+
+Never hand off content with errors. Warnings are acceptable (unreferenced concepts are common in early drafts).
+
 ---
 
 ## Common Mistakes

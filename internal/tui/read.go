@@ -73,11 +73,43 @@ func (m ReadModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "q", "esc":
 				m.state = readList
+				m.scrollTop = 0
 			case "j", "down":
-				m.scrollTop++
+				rendered := render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4)
+				maxScroll := strings.Count(rendered, "\n") - (m.viewHeight - 5)
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if m.scrollTop < maxScroll {
+					m.scrollTop++
+				}
 			case "k", "up":
 				if m.scrollTop > 0 {
 					m.scrollTop--
+				}
+			case "g":
+				m.scrollTop = 0
+			case "G":
+				rendered := render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4)
+				maxScroll := strings.Count(rendered, "\n") - (m.viewHeight - 5)
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				m.scrollTop = maxScroll
+			case " ", "pgdown", "ctrl+f":
+				m.scrollTop += m.viewHeight - 5
+				rendered := render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4)
+				maxScroll := strings.Count(rendered, "\n") - (m.viewHeight - 5)
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if m.scrollTop > maxScroll {
+					m.scrollTop = maxScroll
+				}
+			case "pgup", "ctrl+b":
+				m.scrollTop -= m.viewHeight - 5
+				if m.scrollTop < 0 {
+					m.scrollTop = 0
 				}
 			}
 		}
@@ -150,9 +182,33 @@ func (m ReadModel) View() string {
 		if m.selected < len(m.files) {
 			b.WriteString(subtitleStyle.Render(m.files[m.selected].Name))
 			b.WriteString("\n")
-			b.WriteString(render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4))
-			b.WriteString("\n\n")
-			b.WriteString(helpStyle.Render("  j/k scroll  ·  esc back"))
+
+			rendered := render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4)
+			lines := strings.Split(rendered, "\n")
+
+			visible := m.viewHeight - 5
+			if visible < 1 {
+				visible = 10
+			}
+
+			end := m.scrollTop + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			if m.scrollTop > len(lines) {
+				m.scrollTop = len(lines)
+			}
+
+			for _, line := range lines[m.scrollTop:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+
+			if len(lines) > visible {
+				b.WriteString(helpStyle.Render(fmt.Sprintf("  %d-%d of %d lines  ·  j/k scroll  ·  esc back", m.scrollTop+1, end, len(lines))))
+			} else {
+				b.WriteString(helpStyle.Render("  esc back"))
+			}
 		}
 	}
 

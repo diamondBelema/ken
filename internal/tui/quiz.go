@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
@@ -31,13 +32,16 @@ type QuizModel struct {
 	noteInput    textinput.Model
 	noteLinkedTo *progress.EntityRef
 	noteCycleIdx int
+	width        int
+	height       int
 }
 
 func NewQuizModel(sess *study.QuizSession, prog *progress.Progress) QuizModel {
 	ti := textinput.New()
-	ti.Placeholder = "Type a note... (Enter to save, Esc to cancel)"
+	ti.Placeholder = "Type a note..."
 	ti.Focus()
 	ti.CharLimit = 1000
+	ti.Width = 60
 
 	return QuizModel{
 		session:   sess,
@@ -57,6 +61,9 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.KeyMsg:
 		switch m.state {
 		case quizAnswering:
@@ -255,84 +262,148 @@ func compareAnswer(user, spec interface{}) bool {
 }
 
 func (m QuizModel) View() string {
+	if m.width == 0 {
+		m.width = 80
+	}
+
 	var b strings.Builder
+
+	header := titleStyle.Render(fmt.Sprintf("  quiz · %s  ", m.session.Subject))
+	b.WriteString(header)
+	b.WriteString("\n\n")
 
 	switch m.state {
 	case quizAnswering:
 		q := m.session.Current()
 		cur, total := m.session.Progress()
 
-		b.WriteString(titleStyle.Render(fmt.Sprintf("Quiz — %s", m.session.Subject)))
-		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Question %d of %d", cur, total)))
-		b.WriteString("\n")
-		b.WriteString(cardStyle.Render(q.Question))
+		progressBar := m.renderProgressBar(cur, total)
+		b.WriteString("  ")
+		b.WriteString(progressBar)
+		b.WriteString("\n\n")
+
+		questionBox := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Render(frontStyle.Render(q.Question))
+
+		b.WriteString(cardStyle.Render(questionBox))
 		b.WriteString("\n")
 
 		switch q.Type {
 		case "mcq":
 			for i, opt := range q.Options {
-				b.WriteString(fmt.Sprintf("  %d: %s\n", i+1, opt))
+				num := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true).Render(fmt.Sprintf("%d", i+1))
+				b.WriteString(fmt.Sprintf("  %s  %s\n", num, opt))
 			}
 		case "true_false":
-			b.WriteString("  t: true\n  f: false\n")
+			b.WriteString("  t  true\n")
+			b.WriteString("  f  false\n")
 		case "fill_blank":
-			b.WriteString(fmt.Sprintf("  Your answer: %s_\n", m.message))
-			b.WriteString("  (press enter to submit)\n")
+			input := lipgloss.NewStyle().
+				Foreground(colorTextBright).
+				Render(m.message + "█")
+			b.WriteString(fmt.Sprintf("  Your answer: %s\n", input))
+			b.WriteString(helpStyle.Render("  enter submit"))
 		}
 
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("q to quit"))
+		b.WriteString(helpStyle.Render("  q quit"))
 
 	case quizFeedback:
 		q := m.session.Current()
+
 		if m.correct {
-			b.WriteString(finishedStyle.Render("Correct!"))
+			b.WriteString("  ")
+			b.WriteString(finishedStyle.Render("Correct"))
 		} else {
-			b.WriteString(gradeUnknownStyle.Render("Incorrect"))
+			b.WriteString("  ")
+			b.WriteString(lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Incorrect"))
 		}
+		b.WriteString("\n")
+
 		if q.Explanation != "" {
+			explainBox := lipgloss.NewStyle().
+				Width(m.width - 8).
+				Render(notesStyle.Render(q.Explanation))
 			b.WriteString("\n")
-			b.WriteString(notesStyle.Render(q.Explanation))
+			b.WriteString(cardStyle.Render(explainBox))
 		}
+
 		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("n to add note • enter to continue • q to quit"))
+		b.WriteString(helpStyle.Render("  n note  ·  enter continue  ·  q quit"))
 
 	case quizNoteInput:
 		q := m.session.Current()
-		cur, total := m.session.Progress()
-
-		b.WriteString(titleStyle.Render(fmt.Sprintf("Quiz — %s", m.session.Subject)))
-		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Question %d of %d", cur, total)))
-		b.WriteString("\n")
-		b.WriteString(cardStyle.Render(q.Question))
-		b.WriteString("\n")
 
 		linkLabel := "unlinked"
 		if m.noteLinkedTo != nil {
 			switch m.noteLinkedTo.Type {
 			case "concept":
-				linkLabel = fmt.Sprintf("concept: %s", m.noteLinkedTo.ID)
+				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
 			case "quiz":
-				linkLabel = fmt.Sprintf("quiz: %s", m.noteLinkedTo.ID)
+				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
 			}
 		}
-		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("New Note → %s", linkLabel)))
+
+		questionBox := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Render(frontStyle.Render(q.Question))
+
+		b.WriteString(cardStyle.Render(questionBox))
 		b.WriteString("\n")
+		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  note %s", linkLabel)))
+		b.WriteString("\n  ")
 		b.WriteString(m.noteInput.View())
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("tab to cycle link • enter to save • esc to cancel"))
+		b.WriteString(helpStyle.Render("  tab cycle  ·  enter save  ·  esc cancel"))
 
 	case quizFinished:
 		total := len(m.session.Questions)
-		b.WriteString(titleStyle.Render("Quiz Complete!"))
-		b.WriteString("\n")
-		pct := float64(m.session.Score) / float64(total) * 100
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Score: %d/%d (%.0f%%)", m.session.Score, total, pct)))
-		b.WriteString("\n")
-		b.WriteString(finishedStyle.Render("Progress saved. Press enter to exit."))
+		pct := 0.0
+		if total > 0 {
+			pct = float64(m.session.Score) / float64(total) * 100
+		}
+
+		summary := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Align(lipgloss.Center).
+			Render(
+				finishedStyle.Render("Quiz Complete"),
+				"\n\n",
+				lipgloss.NewStyle().Foreground(colorTextBright).Render(fmt.Sprintf("Score: %d / %d", m.session.Score, total)),
+				"\n",
+				lipgloss.NewStyle().Foreground(colorSuccess).Render(fmt.Sprintf("%.0f%%", pct)),
+			)
+
+		b.WriteString(cardStyle.Render(summary))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  enter/quit"))
 	}
 
 	return b.String()
+}
+
+func (m QuizModel) renderProgressBar(current, total int) string {
+	barWidth := 20
+	filled := 0
+	if total > 0 {
+		filled = (current * barWidth) / total
+	}
+
+	bar := ""
+	for i := 0; i < barWidth; i++ {
+		if i < filled {
+			bar += "━"
+		} else {
+			bar += "─"
+		}
+	}
+
+	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
+	result := filledStyle.Render(bar[:filled]) + emptyStyle.Render(bar[filled:])
+	result += fmt.Sprintf(" %d/%d", current, total)
+
+	return result
 }

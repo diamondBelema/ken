@@ -48,7 +48,7 @@ var quizCmd = &cobra.Command{
 		}
 
 		m := tui.NewQuizModel(sess, prog)
-		p := tea.NewProgram(m)
+		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
 		}

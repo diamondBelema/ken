@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/render"
 )
@@ -30,6 +31,7 @@ type NotesModel struct {
 	selected    int
 	scrollTop   int
 	viewWidth   int
+	viewHeight  int
 	editInput   textinput.Model
 	editID      string
 	filter      string
@@ -41,10 +43,12 @@ func NewNotesModel(prog *progress.Progress, subject string) NotesModel {
 	ei.Placeholder = "Edit note..."
 	ei.Focus()
 	ei.CharLimit = 1000
+	ei.Width = 60
 
 	si := textinput.New()
 	si.Placeholder = "Search notes..."
 	si.CharLimit = 100
+	si.Width = 40
 
 	return NotesModel{
 		progress:    prog,
@@ -60,6 +64,12 @@ func (m NotesModel) Init() tea.Cmd {
 }
 
 func (m NotesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.viewWidth = msg.Width
+		m.viewHeight = msg.Height
+	}
+
 	switch m.state {
 	case notesList:
 		return m.updateList(msg)
@@ -119,8 +129,6 @@ func (m NotesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q":
 			return m, tea.Quit
 		}
-	case tea.WindowSizeMsg:
-		m.viewWidth = msg.Width
 	}
 	return m, nil
 }
@@ -252,79 +260,84 @@ func (m *NotesModel) refreshNotes() {
 func (m NotesModel) View() string {
 	m.refreshNotes()
 
+	if m.viewWidth == 0 {
+		m.viewWidth = 80
+	}
+
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render(fmt.Sprintf("Notes — %s", m.subject)))
-	b.WriteString("\n")
-
-	if m.filter != "" {
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Filter: %s (esc to clear)", m.filter)))
-		b.WriteString("\n")
-	}
+	header := titleStyle.Render(fmt.Sprintf("  notes · %s  ", m.subject))
+	b.WriteString(header)
+	b.WriteString("\n\n")
 
 	switch m.state {
 	case notesList:
+		if m.filter != "" {
+			b.WriteString(fmt.Sprintf("  %s\n\n", lipgloss.NewStyle().Foreground(colorAccent).Render(fmt.Sprintf("Filter: %s", m.filter))))
+		}
+
 		if len(m.notes) == 0 {
-			b.WriteString(subtitleStyle.Render("No notes found. Press 'n' to create one."))
-			b.WriteString("\n")
+			empty := lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Padding(4, 2).
+				Render("No notes found.\n\n  Press 'n' to create one.")
+			b.WriteString(empty)
 		} else {
 			for i, note := range m.notes {
-				prefix := "  "
-				if i == m.selected {
-					prefix = "→ "
-				}
-
 				linkLabel := "unlinked"
 				if note.LinkedTo != nil {
 					switch note.LinkedTo.Type {
 					case "concept":
-						linkLabel = fmt.Sprintf("concept: %s", note.LinkedTo.ID)
+						linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
 					case "card":
-						linkLabel = fmt.Sprintf("card: %s", note.LinkedTo.ID)
+						linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
 					case "quiz":
-						linkLabel = fmt.Sprintf("quiz: %s", note.LinkedTo.ID)
+						linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
 					case "note":
-						linkLabel = fmt.Sprintf("note: %s", note.LinkedTo.ID)
+						linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
 					}
 				}
 
-				preview := note.Content
-				if len(preview) > 60 {
-					preview = preview[:60] + "..."
-				}
-				preview = strings.ReplaceAll(preview, "\n", " ")
+				preview := truncate(note.Content, 60)
 
-				b.WriteString(fmt.Sprintf("%s%s [%s]\n", prefix, preview, linkLabel))
+				if i == m.selected {
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", preview, linkLabel)))
+				} else {
+					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(preview), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
+				}
 			}
 		}
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("j/k navigate • enter view • n new • e edit • x delete • / search • q quit"))
+		b.WriteString(helpStyle.Render("  j/k navigate  ·  enter view  ·  n new  ·  e edit  ·  x delete  ·  / search  ·  q quit"))
 
 	case notesDetail:
 		if len(m.notes) > 0 {
 			note := m.notes[m.selected]
 			b.WriteString(render.RenderMarkdown(note.Content, m.viewWidth-4))
-			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("e edit • x delete • esc back"))
+			b.WriteString("\n\n")
+			b.WriteString(helpStyle.Render("  e edit  ·  x delete  ·  esc back"))
 		}
 
 	case notesEdit:
-		b.WriteString(noteInputHeaderStyle.Render("Edit Note"))
-		b.WriteString("\n")
+		b.WriteString(noteInputHeaderStyle.Render("  edit note"))
+		b.WriteString("\n  ")
 		b.WriteString(m.editInput.View())
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("enter save • esc cancel"))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  enter save  ·  esc cancel"))
 
 	case notesDeleteConfirm:
-		b.WriteString(gradeUnknownStyle.Render("Delete this note? (y/n)"))
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(colorDanger).
+			Bold(true).
+			Render("  Delete this note? (y/n)"))
 		b.WriteString("\n")
 
 	case notesNew:
-		b.WriteString(noteInputHeaderStyle.Render("New Note (unlinked)"))
-		b.WriteString("\n")
+		b.WriteString(noteInputHeaderStyle.Render("  new note (unlinked)"))
+		b.WriteString("\n  ")
 		b.WriteString(m.editInput.View())
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("enter save • esc cancel"))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  enter save  ·  esc cancel"))
 	}
 
 	return b.String()

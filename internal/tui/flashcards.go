@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
@@ -31,21 +32,24 @@ type FlashcardModel struct {
 	noteInput     textinput.Model
 	noteLinkedTo  *progress.EntityRef
 	noteCycleIdx  int
+	width         int
+	height        int
 }
 
 type flashcardQuitMsg struct{}
 
 func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress) FlashcardModel {
 	ti := textinput.New()
-	ti.Placeholder = "Type a note... (Enter to save, Esc to cancel)"
+	ti.Placeholder = "Type a note..."
 	ti.Focus()
 	ti.CharLimit = 1000
+	ti.Width = 60
 
 	return FlashcardModel{
-		session:  sess,
-		progress: prog,
-		state:    fcShowingFront,
-		total:    len(sess.Cards),
+		session:   sess,
+		progress:  prog,
+		state:     fcShowingFront,
+		total:     len(sess.Cards),
 		noteInput: ti,
 	}
 }
@@ -60,6 +64,9 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.KeyMsg:
 		switch m.state {
 		case fcShowingFront:
@@ -207,89 +214,142 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 
 func (m FlashcardModel) View() string {
 	if m.err != nil {
-		return fmt.Sprintf("Error: %v\n", m.err)
+		return fmt.Sprintf("\n  Error: %v\n\n  Press q to exit.\n", m.err)
+	}
+
+	if m.width == 0 {
+		m.width = 80
 	}
 
 	var b strings.Builder
+
+	header := titleStyle.Render(fmt.Sprintf("  flashcards · %s  ", m.session.Subject))
+	b.WriteString(header)
+	b.WriteString("\n\n")
 
 	switch m.state {
 	case fcShowingFront:
 		card := m.session.Current()
 		cur, total := m.session.Progress()
 
-		b.WriteString(titleStyle.Render(fmt.Sprintf("Flashcards — %s", m.session.Subject)))
+		progressBar := m.renderProgressBar(cur, total)
+		b.WriteString("  ")
+		b.WriteString(progressBar)
+		b.WriteString("\n\n")
+
+		cardContent := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Render(frontStyle.Render(card.Front))
+
+		b.WriteString(cardStyle.Render(cardContent))
 		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Card %d of %d", cur, total)))
-		b.WriteString("\n")
-		b.WriteString(cardStyle.Render(frontStyle.Render(card.Front)))
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("space/enter to flip • n to add note • q to quit"))
+		b.WriteString(helpStyle.Render("  space/enter flip  ·  n note  ·  q quit"))
 
 	case fcShowingBack:
 		card := m.session.Current()
 		cur, total := m.session.Progress()
 
-		b.WriteString(titleStyle.Render(fmt.Sprintf("Flashcards — %s", m.session.Subject)))
-		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Card %d of %d", cur, total)))
-		b.WriteString("\n")
-		b.WriteString(cardStyle.Render(
-			frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back),
-		))
+		progressBar := m.renderProgressBar(cur, total)
+		b.WriteString("  ")
+		b.WriteString(progressBar)
+		b.WriteString("\n\n")
+
+		cardContent := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
+
+		b.WriteString(cardStyle.Render(cardContent))
 		if card.Notes != "" {
-			b.WriteString("\n")
+			b.WriteString("\n  ")
 			b.WriteString(notesStyle.Render(card.Notes))
 		}
 		b.WriteString("\n\n")
-		b.WriteString(gradeUnknownStyle.Render("1:Unknown"))
-		b.WriteString(gradeKnownLittleStyle.Render("2:KnownLittle"))
-		b.WriteString(gradeKnownFairlyStyle.Render("3:KnownFairly"))
-		b.WriteString(gradeKnownWellStyle.Render("4:KnownWell"))
-		b.WriteString(gradeMasteredStyle.Render("5:Mastered"))
+
+		grades := lipgloss.JoinHorizontal(lipgloss.Center,
+			gradeUnknownStyle.Render("1:Unknown"),
+			gradeKnownLittleStyle.Render("2:KnownLittle"),
+			gradeKnownFairlyStyle.Render("3:KnownFairly"),
+			gradeKnownWellStyle.Render("4:KnownWell"),
+			gradeMasteredStyle.Render("5:Mastered"),
+		)
+		b.WriteString("  ")
+		b.WriteString(grades)
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("n to add note • q to quit"))
+		b.WriteString(helpStyle.Render("  n note  ·  q quit"))
 
 	case fcNoteInput:
 		card := m.session.Current()
-		cur, total := m.session.Progress()
-
-		b.WriteString(titleStyle.Render(fmt.Sprintf("Flashcards — %s", m.session.Subject)))
-		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Card %d of %d", cur, total)))
-		b.WriteString("\n")
-		b.WriteString(cardStyle.Render(
-			frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back),
-		))
-		b.WriteString("\n")
 
 		linkLabel := "unlinked"
 		if m.noteLinkedTo != nil {
 			switch m.noteLinkedTo.Type {
 			case "concept":
-				linkLabel = fmt.Sprintf("concept: %s", m.noteLinkedTo.ID)
+				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
 			case "card":
-				linkLabel = fmt.Sprintf("card: %s", m.noteLinkedTo.ID)
-			case "quiz":
-				linkLabel = fmt.Sprintf("quiz: %s", m.noteLinkedTo.ID)
-			case "note":
-				linkLabel = fmt.Sprintf("note: %s", m.noteLinkedTo.ID)
+				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
 			}
 		}
-		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("New Note → %s", linkLabel)))
+
+		cardContent := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
+
+		b.WriteString(cardStyle.Render(cardContent))
 		b.WriteString("\n")
+		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  note %s", linkLabel)))
+		b.WriteString("\n  ")
 		b.WriteString(m.noteInput.View())
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("tab to cycle link • enter to save • esc to cancel"))
+		b.WriteString(helpStyle.Render("  tab cycle  ·  enter save  ·  esc cancel"))
 
 	case fcFinished:
-		b.WriteString(titleStyle.Render("Study Complete!"))
-		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Score: %d/%d (%.0f%%)", m.score, m.total, float64(m.score)/float64(m.total)*100)))
-		b.WriteString("\n")
-		b.WriteString(finishedStyle.Render("Progress saved. Press enter to exit."))
+		pct := 0.0
+		if m.total > 0 {
+			pct = float64(m.score) / float64(m.total) * 100
+		}
+
+		summary := lipgloss.NewStyle().
+			Width(m.width - 8).
+			Align(lipgloss.Center).
+			Render(
+				finishedStyle.Render("Session Complete"),
+				"\n\n",
+				lipgloss.NewStyle().Foreground(colorTextBright).Render(fmt.Sprintf("Score: %d / %d", m.score, m.total)),
+				"\n",
+				lipgloss.NewStyle().Foreground(colorSuccess).Render(fmt.Sprintf("%.0f%%", pct)),
+			)
+
+		b.WriteString(cardStyle.Render(summary))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  enter/quit"))
 	}
 
 	return b.String()
+}
+
+func (m FlashcardModel) renderProgressBar(current, total int) string {
+	barWidth := 20
+	filled := 0
+	if total > 0 {
+		filled = (current * barWidth) / total
+	}
+
+	bar := ""
+	for i := 0; i < barWidth; i++ {
+		if i < filled {
+			bar += "━"
+		} else {
+			bar += "─"
+		}
+	}
+
+	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
+	result := filledStyle.Render(bar[:filled]) + emptyStyle.Render(bar[filled:])
+	result += fmt.Sprintf(" %d/%d", current, total)
+
+	return result
 }
 
 func confidenceLevelString(l mastery.ConfidenceLevel) string {

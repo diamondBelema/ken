@@ -19,7 +19,7 @@ var progressCmd = &cobra.Command{
 		}
 
 		m := tui.NewProgressModel(subject)
-		p := tea.NewProgram(m)
+		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
 		}

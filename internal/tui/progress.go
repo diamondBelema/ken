@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/discovery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
@@ -20,6 +21,7 @@ type ProgressModel struct {
 	conceptData map[string][]parser.Concept
 	err         error
 	viewWidth   int
+	viewHeight  int
 }
 
 type progressLoadedMsg struct {
@@ -89,24 +91,39 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.viewWidth = msg.Width
+		m.viewHeight = msg.Height
 	}
 	return m, nil
 }
 
 func (m ProgressModel) View() string {
-	if m.err != nil {
-		return fmt.Sprintf("Error: %v\n\nPress q to exit.\n", m.err)
-	}
-
-	if len(m.subjects) == 0 {
-		return titleStyle.Render("Progress") + "\n\n" +
-			subtitleStyle.Render("No subjects found.") + "\n\n" +
-			helpStyle.Render("Press q to exit.")
+	if m.viewWidth == 0 {
+		m.viewWidth = 80
 	}
 
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("Progress"))
+
+	header := titleStyle.Render("  progress  ")
+	b.WriteString(header)
 	b.WriteString("\n\n")
+
+	if m.err != nil {
+		b.WriteString(fmt.Sprintf("  Error: %v\n", m.err))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  q quit"))
+		return b.String()
+	}
+
+	if len(m.subjects) == 0 {
+		empty := lipgloss.NewStyle().
+			Foreground(colorMuted).
+			Padding(4, 2).
+			Render("No subjects found.")
+		b.WriteString(empty)
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  q quit"))
+		return b.String()
+	}
 
 	subjectsToShow := m.subjects
 	if m.subject != "" {
@@ -133,68 +150,49 @@ func (m ProgressModel) View() string {
 		for _, id := range progress.ConceptIDs(prog) {
 			cs := prog.Concepts[id]
 			status := "unknown"
+			statusColor := colorMuted
 			if cs.LastReviewedAt != nil {
 				if cs.Confidence >= threshold {
 					status = fmt.Sprintf("%.0f%% confident", cs.Confidence*100)
+					statusColor = colorSuccess
 				} else {
 					status = fmt.Sprintf("%.0f%% (needs review)", cs.Confidence*100)
+					statusColor = colorWarning
 				}
 			}
-			b.WriteString(fmt.Sprintf("  %s: %s\n", id, status))
+
+			conceptStyle := lipgloss.NewStyle().Foreground(colorTextBright).Bold(true)
+			statusStyle := lipgloss.NewStyle().Foreground(statusColor)
+
+			b.WriteString(fmt.Sprintf("  %s  %s\n", conceptStyle.Render(id), statusStyle.Render(status)))
 
 			for _, c := range concepts {
 				if c.ID == id {
 					if c.Description != "" {
-						desc := c.Description
-						if len(desc) > 80 {
-							desc = desc[:80] + "..."
-						}
-						desc = strings.ReplaceAll(desc, "\n", " ")
-						b.WriteString(fmt.Sprintf("    Description: %s\n", desc))
+						desc := truncate(c.Description, 80)
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render(desc)))
 					}
 
 					if c.Summary != "" {
-						b.WriteString(fmt.Sprintf("    Content Summary: %s\n", truncate(c.Summary, 80)))
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render(truncate(c.Summary, 80))))
 					}
 
 					userSummaries := prog.SummariesForConcept(id)
-					for _, s := range userSummaries {
-						b.WriteString(fmt.Sprintf("    User Summary: %s\n", s.Title))
+					if len(userSummaries) > 0 {
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorAccent).Render(fmt.Sprintf("%d user summaries", len(userSummaries)))))
 					}
 
 					notes := prog.NotesForConcept(id)
 					if len(notes) > 0 {
-						b.WriteString(fmt.Sprintf("    Notes (%d):\n", len(notes)))
-						for _, n := range notes {
-							preview := n.Content
-							if len(preview) > 60 {
-								preview = preview[:60] + "..."
-							}
-							preview = strings.ReplaceAll(preview, "\n", " ")
-							b.WriteString(fmt.Sprintf("      - \"%s\"\n", preview))
-						}
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorAccent).Render(fmt.Sprintf("%d notes", len(notes)))))
 					}
 
 					if len(c.Diagrams) > 0 {
-						b.WriteString("    Diagrams: ")
-						for i, d := range c.Diagrams {
-							if i > 0 {
-								b.WriteString(", ")
-							}
-							b.WriteString(d.Label)
-						}
-						b.WriteString("\n")
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorAccent).Render(fmt.Sprintf("%d diagrams", len(c.Diagrams)))))
 					}
 
 					if len(c.Links) > 0 {
-						b.WriteString("    Links: ")
-						for i, l := range c.Links {
-							if i > 0 {
-								b.WriteString(", ")
-							}
-							b.WriteString(fmt.Sprintf("[%s](%s)", l.Title, l.Type))
-						}
-						b.WriteString("\n")
+						b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorAccent).Render(fmt.Sprintf("%d links", len(c.Links)))))
 					}
 
 					break
@@ -204,7 +202,9 @@ func (m ProgressModel) View() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(helpStyle.Render("Press q to exit."))
+	b.WriteString(strings.Repeat("─", m.viewWidth))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("  q quit"))
 	return b.String()
 }
 

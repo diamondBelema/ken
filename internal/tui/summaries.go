@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/render"
 )
@@ -20,14 +21,15 @@ const (
 )
 
 type SummariesModel struct {
-	progress    *progress.Progress
-	subject     string
-	state       summariesState
-	summaries   []progress.Summary
-	summaryIDs  []string
-	selected    int
-	viewWidth   int
-	titleInput  textinput.Model
+	progress     *progress.Progress
+	subject      string
+	state        summariesState
+	summaries    []progress.Summary
+	summaryIDs   []string
+	selected     int
+	viewWidth    int
+	viewHeight   int
+	titleInput   textinput.Model
 	contentInput textinput.Model
 }
 
@@ -36,10 +38,12 @@ func NewSummariesModel(prog *progress.Progress, subject string) SummariesModel {
 	ti.Placeholder = "Summary title..."
 	ti.Focus()
 	ti.CharLimit = 200
+	ti.Width = 50
 
 	ci := textinput.New()
 	ci.Placeholder = "Summary content..."
 	ci.CharLimit = 5000
+	ci.Width = 60
 
 	return SummariesModel{
 		progress:     prog,
@@ -55,6 +59,12 @@ func (m SummariesModel) Init() tea.Cmd {
 }
 
 func (m SummariesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.viewWidth = msg.Width
+		m.viewHeight = msg.Height
+	}
+
 	switch m.state {
 	case summariesList:
 		return m.updateList(msg)
@@ -91,8 +101,6 @@ func (m SummariesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "esc":
 			return m, tea.Quit
 		}
-	case tea.WindowSizeMsg:
-		m.viewWidth = msg.Width
 	}
 	return m, nil
 }
@@ -183,27 +191,35 @@ func (m *SummariesModel) refreshSummaries() {
 func (m SummariesModel) View() string {
 	m.refreshSummaries()
 
+	if m.viewWidth == 0 {
+		m.viewWidth = 80
+	}
+
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render(fmt.Sprintf("Summaries — %s", m.subject)))
-	b.WriteString("\n")
+	header := titleStyle.Render(fmt.Sprintf("  summaries · %s  ", m.subject))
+	b.WriteString(header)
+	b.WriteString("\n\n")
 
 	switch m.state {
 	case summariesList:
 		if len(m.summaries) == 0 {
-			b.WriteString(subtitleStyle.Render("No summaries found. Press 's' to create one."))
-			b.WriteString("\n")
+			empty := lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Padding(4, 2).
+				Render("No summaries found.\n\n  Press 's' to create one.")
+			b.WriteString(empty)
 		} else {
 			for i, summary := range m.summaries {
-				prefix := "  "
 				if i == m.selected {
-					prefix = "→ "
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s", summary.Title)))
+				} else {
+					b.WriteString(fmt.Sprintf("  %s\n", listItemStyle.Render(summary.Title)))
 				}
-				b.WriteString(fmt.Sprintf("%s%s\n", prefix, summary.Title))
 			}
 		}
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("j/k navigate • enter view • s new • q quit"))
+		b.WriteString(helpStyle.Render("  j/k navigate  ·  enter view  ·  s new  ·  q quit"))
 
 	case summariesDetail:
 		if len(m.summaries) > 0 {
@@ -211,22 +227,22 @@ func (m SummariesModel) View() string {
 			b.WriteString(subtitleStyle.Render(summary.Title))
 			b.WriteString("\n")
 			b.WriteString(render.RenderMarkdown(summary.Content, m.viewWidth-4))
-			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("esc back"))
+			b.WriteString("\n\n")
+			b.WriteString(helpStyle.Render("  esc back"))
 		}
 
 	case summariesNew:
-		b.WriteString(noteInputHeaderStyle.Render("New Summary"))
+		b.WriteString(noteInputHeaderStyle.Render("  new summary"))
 		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render("Title:"))
-		b.WriteString("\n")
+		b.WriteString(subtitleStyle.Render("  Title:"))
+		b.WriteString("\n  ")
 		b.WriteString(m.titleInput.View())
 		b.WriteString("\n")
-		b.WriteString(subtitleStyle.Render("Content:"))
-		b.WriteString("\n")
+		b.WriteString(subtitleStyle.Render("  Content:"))
+		b.WriteString("\n  ")
 		b.WriteString(m.contentInput.View())
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("tab switch field • enter save • esc cancel"))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("  tab switch field  ·  enter save  ·  esc cancel"))
 	}
 
 	return b.String()

@@ -31,7 +31,7 @@ var readCmd = &cobra.Command{
 		}
 
 		m := tui.NewReadModel(files)
-		p := tea.NewProgram(m)
+		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
 		}

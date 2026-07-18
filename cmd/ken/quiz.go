@@ -36,6 +36,12 @@ var quizCmd = &cobra.Command{
 			return fmt.Errorf("failed to load progress: %w", err)
 		}
 
+		concepts, err := study.LoadConcepts(subjectDir, subject)
+		if err != nil {
+			return fmt.Errorf("failed to load concepts: %w", err)
+		}
+		progress.InitConcepts(prog, concepts)
+
 		sess, err := study.LoadQuizzes(subjectDir, subject)
 		if err != nil {
 			return err

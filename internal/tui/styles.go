@@ -49,4 +49,9 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("112")).
 			MarginTop(2)
+
+	noteInputHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("39")).
+				MarginTop(1)
 )

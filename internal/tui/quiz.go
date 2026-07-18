@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/progress"
@@ -16,23 +17,33 @@ type quizState int
 const (
 	quizAnswering quizState = iota
 	quizFeedback
+	quizNoteInput
 	quizFinished
 )
 
 type QuizModel struct {
-	session  *study.QuizSession
-	progress *progress.Progress
-	state    quizState
-	selected int
-	correct  bool
-	message  string
+	session      *study.QuizSession
+	progress     *progress.Progress
+	state        quizState
+	selected     int
+	correct      bool
+	message      string
+	noteInput    textinput.Model
+	noteLinkedTo *progress.EntityRef
+	noteCycleIdx int
 }
 
 func NewQuizModel(sess *study.QuizSession, prog *progress.Progress) QuizModel {
+	ti := textinput.New()
+	ti.Placeholder = "Type a note... (Enter to save, Esc to cancel)"
+	ti.Focus()
+	ti.CharLimit = 1000
+
 	return QuizModel{
-		session:  sess,
-		progress: prog,
-		state:    quizAnswering,
+		session:   sess,
+		progress:  prog,
+		state:     quizAnswering,
+		noteInput: ti,
 	}
 }
 
@@ -41,6 +52,10 @@ func (m QuizModel) Init() tea.Cmd {
 }
 
 func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.state == quizNoteInput {
+		return m.updateNoteInput(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch m.state {
@@ -88,6 +103,8 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = quizFinished
 				}
 				return m, nil
+			case "n":
+				return m.startNoteInput(), nil
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -100,6 +117,64 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m QuizModel) startNoteInput() QuizModel {
+	m.state = quizNoteInput
+	m.noteInput.SetValue("")
+	m.noteInput.Focus()
+	m.noteCycleIdx = 0
+	m.noteLinkedTo = m.getCurrentQuestionLink()
+	return m
+}
+
+func (m QuizModel) getCurrentQuestionLink() *progress.EntityRef {
+	q := m.session.Current()
+	if q.ConceptID != "" {
+		return &progress.EntityRef{Type: "concept", ID: q.ConceptID}
+	}
+	return &progress.EntityRef{Type: "quiz", ID: q.ID}
+}
+
+func (m QuizModel) cycleLinkTarget() {
+	q := m.session.Current()
+	targets := []*progress.EntityRef{}
+
+	if q.ConceptID != "" {
+		targets = append(targets, &progress.EntityRef{Type: "concept", ID: q.ConceptID})
+	}
+	targets = append(targets, &progress.EntityRef{Type: "quiz", ID: q.ID})
+	targets = append(targets, nil)
+
+	m.noteCycleIdx = (m.noteCycleIdx + 1) % len(targets)
+	m.noteLinkedTo = targets[m.noteCycleIdx]
+}
+
+func (m QuizModel) updateNoteInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			content := m.noteInput.Value()
+			if strings.TrimSpace(content) != "" {
+				m.progress.AddNote(content, m.noteLinkedTo)
+			}
+			m.state = quizFeedback
+			m.noteInput.SetValue("")
+			return m, nil
+		case "esc":
+			m.state = quizFeedback
+			m.noteInput.SetValue("")
+			return m, nil
+		case "tab":
+			m.cycleLinkTarget()
+			return m, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	m.noteInput, cmd = m.noteInput.Update(msg)
+	return m, cmd
 }
 
 func (m QuizModel) checkAnswer() QuizModel {
@@ -131,7 +206,6 @@ func (m *QuizModel) recordResult() {
 	q := m.session.Current()
 	m.session.RecordAnswer(m.correct)
 
-	// Update quiz progress
 	qs, exists := m.progress.Quizzes[q.ID]
 	if !exists {
 		qs = progress.QuizState{}
@@ -145,7 +219,6 @@ func (m *QuizModel) recordResult() {
 	}
 	m.progress.Quizzes[q.ID] = qs
 
-	// Update concept confidence if question has concept_id
 	if q.ConceptID != "" {
 		cs, exists := m.progress.Concepts[q.ConceptID]
 		if !exists {
@@ -223,7 +296,33 @@ func (m QuizModel) View() string {
 			b.WriteString(notesStyle.Render(q.Explanation))
 		}
 		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("press enter to continue • q to quit"))
+		b.WriteString(helpStyle.Render("n to add note • enter to continue • q to quit"))
+
+	case quizNoteInput:
+		q := m.session.Current()
+		cur, total := m.session.Progress()
+
+		b.WriteString(titleStyle.Render(fmt.Sprintf("Quiz — %s", m.session.Subject)))
+		b.WriteString("\n")
+		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Question %d of %d", cur, total)))
+		b.WriteString("\n")
+		b.WriteString(cardStyle.Render(q.Question))
+		b.WriteString("\n")
+
+		linkLabel := "unlinked"
+		if m.noteLinkedTo != nil {
+			switch m.noteLinkedTo.Type {
+			case "concept":
+				linkLabel = fmt.Sprintf("concept: %s", m.noteLinkedTo.ID)
+			case "quiz":
+				linkLabel = fmt.Sprintf("quiz: %s", m.noteLinkedTo.ID)
+			}
+		}
+		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("New Note → %s", linkLabel)))
+		b.WriteString("\n")
+		b.WriteString(m.noteInput.View())
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("tab to cycle link • enter to save • esc to cancel"))
 
 	case quizFinished:
 		total := len(m.session.Questions)

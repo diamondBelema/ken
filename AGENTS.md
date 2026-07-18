@@ -6,14 +6,16 @@
 
 ## Project state
 
-Early scaffold. Only `main.go` has code (placeholder print). All `internal/` and `cmd/` directories are empty. Dependencies are declared in `go.mod` but nothing imports them yet.
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Now adding new features: notes, summaries, diagrams, links, markdown rendering, and raw content reading (`ken read`).
 
 ## Tech stack
 
 - **Go** (module: `github.com/diamondBelema/ken`)
-- **TUI:** Charmbracelet stack — `bubbletea`, `bubbles`, `lipgloss`
+- **CLI:** Cobra
+- **TUI:** Charmbracelet stack — `bubbletea` v1.3.10, `bubbles` v1.0.0, `lipgloss` v1.1.0
+- **Markdown:** `glamour` v2 (planned — for rendering markdown in TUI)
+- **Diagrams:** `mermaigo` (ASCII), `go-mermaid` (SVG) — both planned
 - **Parsing:** `gopkg.in/yaml.v3` for YAML frontmatter
-- No CLI framework declared yet (spec mentions cobra or plain `flag`)
 
 ## Build & run
 
@@ -24,22 +26,28 @@ go vet ./...                 # static analysis
 go test ./...                # unit tests
 ```
 
-No Makefile, CI, linter config, or test suite exists yet.
-
 ## Package layout
 
 ```
 cmd/ken/
-  main.go           # cobra root command
+  main.go           # cobra root command + dashboard
   subjects.go       # ken subjects — list subjects with file counts
   flashcards.go     # ken flashcards <subject> — launch TUI study
+  quiz.go           # ken quiz <subject> — launch quiz TUI
+  progress.go       # ken progress [subject] — show progress
+  stats.go          # ken stats — aggregate stats
+  notes.go          # ken notes <subject> — manage user notes
+  summaries.go      # ken summaries <subject> — manage summaries
+  read.go           # ken read <subject> — read lecture notes/content
 internal/
   discovery/        # scan ~/Documents/learn/subjects/
-  mastery/          # Bayesian confidence engine (port of BayesianConfidenceStrategyV2)
+  mastery/          # Bayesian confidence engine + 7 tests
   parser/           # YAML frontmatter + markdown body parsing
   progress/         # progress state read/write (XDG data dir)
-  study/            # study session logic
+  study/            # study session logic (flashcard + quiz)
   tui/              # bubbletea models, views, update loops
+  render/           # markdown rendering via glamour
+  diagram/          # mermaid rendering wrapper
 ```
 
 ## Key conventions from the spec
@@ -55,23 +63,32 @@ internal/
 ## Data architecture — content vs state separation
 
 **Content (read-only):** `~/Documents/learn/subjects/<subject>/`
-- `concepts/*.md` — concept definitions with hierarchy
+- `concepts/*.md` — concept definitions with hierarchy, diagrams, links, summaries
 - `flashcards/*.md` — flashcard sets
 - `quizzes/*.md` — quiz sets
 - Nothing in this tree is ever written to by ken.
 
 **State (writable):** `~/.local/share/ken/`
-- `<subject>.json` — per-subject progress (concepts, cards, quizzes)
+- `<subject>.json` — per-subject progress (concepts, cards, quizzes, notes, summaries)
 - `stats.json` — aggregate stats (Phase 5)
-- Follows XDG Base Directory spec. Content directory stays100% read-only.
+- Follows XDG Base Directory spec. Content directory stays 100% read-only.
 
 This means:
 - Git repos containing course materials stay clean (no progress files)
 - Multiple users can study the same content independently
 - Reinstalling/updating content never touches progress
 
+## New features (in progress)
+
+- **Notes:** User-created, never interrupt learning flow. Auto-linked to current context. Can link to other notes. Editable/deletable. Markdown content rendered with glamour.
+- **Summaries:** Content-parsed (`## <id>:summary`) + user-created. Both shown when they exist. Scoped to concept/concepts/subject.
+- **Diagrams:** Mermaid syntax, inline source or external file. ASCII quick view (mermaigo) + SVG export (go-mermaid).
+- **Links:** URL + label + type, stored in content files.
+- **Markdown rendering:** glamour v2 for all user-facing text content.
+
 ## When working on this repo
 
 - Read `ken-spec.md` before writing any code. It defines exact file formats, CLI commands, the full mastery algorithm, acceptance criteria per phase, and out-of-scope items.
-- The build is phased (5 phases + a 1.5 in the spec). Check which phase is current before starting work.
-- No tests exist yet. When tests are added, expect standard `go test ./...` behavior.
+- Check `FEATURE-PLAN.md` for the new features plan.
+- Build command: `go build -o ken ./cmd/ken` (entrypoint is `cmd/ken/`, not root).
+- Tests: `go test ./...` — currently 7 tests in `internal/mastery/`.

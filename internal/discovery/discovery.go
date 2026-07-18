@@ -11,6 +11,7 @@ type SubjectInfo struct {
 	ConceptFiles   int
 	FlashcardFiles int
 	QuizFiles      int
+	NotesFiles     int
 }
 
 func Discover(subjectsDir string) ([]SubjectInfo, error) {
@@ -34,6 +35,7 @@ func Discover(subjectsDir string) ([]SubjectInfo, error) {
 		info.ConceptFiles = countMDFiles(filepath.Join(subjectDir, "concepts"))
 		info.FlashcardFiles = countMDFiles(filepath.Join(subjectDir, "flashcards"))
 		info.QuizFiles = countMDFiles(filepath.Join(subjectDir, "quizzes"))
+		info.NotesFiles = countMDFiles(filepath.Join(subjectDir, "notes"))
 
 		subjects = append(subjects, info)
 	}

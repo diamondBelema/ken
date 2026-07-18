@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/progress"
@@ -16,26 +17,36 @@ type flashcardState int
 const (
 	fcShowingFront flashcardState = iota
 	fcShowingBack
+	fcNoteInput
 	fcFinished
 )
 
 type FlashcardModel struct {
-	session  *study.FlashcardSession
-	progress *progress.Progress
-	state    flashcardState
-	score    int
-	total    int
-	err      error
+	session       *study.FlashcardSession
+	progress      *progress.Progress
+	state         flashcardState
+	score         int
+	total         int
+	err           error
+	noteInput     textinput.Model
+	noteLinkedTo  *progress.EntityRef
+	noteCycleIdx  int
 }
 
 type flashcardQuitMsg struct{}
 
 func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress) FlashcardModel {
+	ti := textinput.New()
+	ti.Placeholder = "Type a note... (Enter to save, Esc to cancel)"
+	ti.Focus()
+	ti.CharLimit = 1000
+
 	return FlashcardModel{
 		session:  sess,
 		progress: prog,
 		state:    fcShowingFront,
 		total:    len(sess.Cards),
+		noteInput: ti,
 	}
 }
 
@@ -44,6 +55,10 @@ func (m FlashcardModel) Init() tea.Cmd {
 }
 
 func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.state == fcNoteInput {
+		return m.updateNoteInput(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch m.state {
@@ -52,6 +67,8 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case " ", "enter":
 				m.state = fcShowingBack
 				return m, nil
+			case "n":
+				return m.startNoteInput(), nil
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -73,6 +90,8 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "5":
 				m = m.gradeCard(mastery.Mastered)
 				return m, nil
+			case "n":
+				return m.startNoteInput(), nil
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -87,11 +106,68 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m FlashcardModel) startNoteInput() FlashcardModel {
+	m.state = fcNoteInput
+	m.noteInput.SetValue("")
+	m.noteInput.Focus()
+	m.noteCycleIdx = 0
+	m.noteLinkedTo = m.getCurrentCardLink()
+	return m
+}
+
+func (m FlashcardModel) getCurrentCardLink() *progress.EntityRef {
+	card := m.session.Current()
+	if card.ConceptID != "" {
+		return &progress.EntityRef{Type: "concept", ID: card.ConceptID}
+	}
+	return &progress.EntityRef{Type: "card", ID: card.ID}
+}
+
+func (m FlashcardModel) cycleLinkTarget() {
+	card := m.session.Current()
+	targets := []*progress.EntityRef{}
+
+	if card.ConceptID != "" {
+		targets = append(targets, &progress.EntityRef{Type: "concept", ID: card.ConceptID})
+	}
+	targets = append(targets, &progress.EntityRef{Type: "card", ID: card.ID})
+	targets = append(targets, nil)
+
+	m.noteCycleIdx = (m.noteCycleIdx + 1) % len(targets)
+	m.noteLinkedTo = targets[m.noteCycleIdx]
+}
+
+func (m FlashcardModel) updateNoteInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			content := m.noteInput.Value()
+			if strings.TrimSpace(content) != "" {
+				m.progress.AddNote(content, m.noteLinkedTo)
+			}
+			m.state = fcShowingBack
+			m.noteInput.SetValue("")
+			return m, nil
+		case "esc":
+			m.state = fcShowingBack
+			m.noteInput.SetValue("")
+			return m, nil
+		case "tab":
+			m.cycleLinkTarget()
+			return m, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	m.noteInput, cmd = m.noteInput.Update(msg)
+	return m, cmd
+}
+
 func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel {
 	card := m.session.Current()
 	now := unixNow()
 
-	// Update concept confidence if card has a concept_id
 	if card.ConceptID != "" {
 		cs, exists := m.progress.Concepts[card.ConceptID]
 		if !exists {
@@ -108,7 +184,6 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 		}
 	}
 
-	// Always update card history
 	cs, exists := m.progress.Cards[card.ID]
 	if !exists {
 		cs = progress.CardState{}
@@ -117,12 +192,10 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 	cs.LastGrade = confidenceLevelString(level)
 	m.progress.Cards[card.ID] = cs
 
-	// Track score
 	if level >= mastery.KnownFairly {
 		m.score++
 	}
 
-	// Advance
 	if m.session.Advance() {
 		m.state = fcShowingFront
 	} else {
@@ -150,7 +223,7 @@ func (m FlashcardModel) View() string {
 		b.WriteString("\n")
 		b.WriteString(cardStyle.Render(frontStyle.Render(card.Front)))
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("space/enter to flip • q to quit"))
+		b.WriteString(helpStyle.Render("space/enter to flip • n to add note • q to quit"))
 
 	case fcShowingBack:
 		card := m.session.Current()
@@ -174,7 +247,39 @@ func (m FlashcardModel) View() string {
 		b.WriteString(gradeKnownWellStyle.Render("4:KnownWell"))
 		b.WriteString(gradeMasteredStyle.Render("5:Mastered"))
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("q to quit"))
+		b.WriteString(helpStyle.Render("n to add note • q to quit"))
+
+	case fcNoteInput:
+		card := m.session.Current()
+		cur, total := m.session.Progress()
+
+		b.WriteString(titleStyle.Render(fmt.Sprintf("Flashcards — %s", m.session.Subject)))
+		b.WriteString("\n")
+		b.WriteString(subtitleStyle.Render(fmt.Sprintf("Card %d of %d", cur, total)))
+		b.WriteString("\n")
+		b.WriteString(cardStyle.Render(
+			frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back),
+		))
+		b.WriteString("\n")
+
+		linkLabel := "unlinked"
+		if m.noteLinkedTo != nil {
+			switch m.noteLinkedTo.Type {
+			case "concept":
+				linkLabel = fmt.Sprintf("concept: %s", m.noteLinkedTo.ID)
+			case "card":
+				linkLabel = fmt.Sprintf("card: %s", m.noteLinkedTo.ID)
+			case "quiz":
+				linkLabel = fmt.Sprintf("quiz: %s", m.noteLinkedTo.ID)
+			case "note":
+				linkLabel = fmt.Sprintf("note: %s", m.noteLinkedTo.ID)
+			}
+		}
+		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("New Note → %s", linkLabel)))
+		b.WriteString("\n")
+		b.WriteString(m.noteInput.View())
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("tab to cycle link • enter to save • esc to cancel"))
 
 	case fcFinished:
 		b.WriteString(titleStyle.Render("Study Complete!"))

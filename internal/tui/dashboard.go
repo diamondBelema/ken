@@ -100,6 +100,8 @@ func (m DashboardModel) View() string {
 		prog := m.progData[s.Name]
 		conceptCount := len(prog.Concepts)
 		aboveThreshold := 0
+		noteCount := len(prog.Notes)
+		summaryCount := len(prog.Summaries)
 
 		for _, cs := range prog.Concepts {
 			if cs.Confidence >= threshold {
@@ -114,8 +116,10 @@ func (m DashboardModel) View() string {
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("  %d concepts (%d above %.0f%% confidence)\n",
 			conceptCount, aboveThreshold, threshold*100))
-		b.WriteString(fmt.Sprintf("  %d flashcards, %d quizzes\n",
-			s.FlashcardFiles, s.QuizFiles))
+		b.WriteString(fmt.Sprintf("  %d flashcards, %d quizzes, %d read files\n",
+			s.FlashcardFiles, s.QuizFiles, s.NotesFiles))
+		b.WriteString(fmt.Sprintf("  %d notes, %d summaries\n",
+			noteCount, summaryCount))
 		b.WriteString("\n")
 	}
 

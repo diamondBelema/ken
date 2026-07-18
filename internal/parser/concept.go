@@ -5,11 +5,27 @@ import (
 	"strings"
 )
 
+type Diagram struct {
+	ID     string
+	Label  string
+	Source string
+	File   string
+}
+
+type Link struct {
+	URL   string
+	Title string
+	Type  string
+}
+
 type Concept struct {
 	ID          string
 	Name        string
 	ParentID    string
 	Description string
+	Summary     string
+	Diagrams    []Diagram
+	Links       []Link
 }
 
 type ConceptSet struct {
@@ -35,7 +51,7 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 		return ConceptSet{}, fmt.Errorf("missing or invalid 'concepts' field")
 	}
 
-	descriptions := parseDescriptionSections(body)
+	sections := parseSections(body)
 
 	var concepts []Concept
 	for i, c := range conceptsRaw {
@@ -52,41 +68,86 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 		name, _ := cm["name"].(string)
 		parentID, _ := cm["parent_id"].(string)
 
+		var diagrams []Diagram
+		if diagsRaw, ok := cm["diagrams"].([]interface{}); ok {
+			for _, d := range diagsRaw {
+				dm, ok := d.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				diag := Diagram{
+					ID:    getString(dm, "id"),
+					Label: getString(dm, "label"),
+					Source: getString(dm, "source"),
+					File:   getString(dm, "file"),
+				}
+				diagrams = append(diagrams, diag)
+			}
+		}
+
+		var links []Link
+		if linksRaw, ok := cm["links"].([]interface{}); ok {
+			for _, l := range linksRaw {
+				lm, ok := l.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				link := Link{
+					URL:   getString(lm, "url"),
+					Title: getString(lm, "title"),
+					Type:  getString(lm, "type"),
+				}
+				links = append(links, link)
+			}
+		}
+
 		concepts = append(concepts, Concept{
 			ID:          id,
 			Name:        name,
 			ParentID:    parentID,
-			Description: descriptions[id],
+			Description: sections[id],
+			Summary:     sections[id+":summary"],
+			Diagrams:    diagrams,
+			Links:       links,
 		})
 	}
 
 	return ConceptSet{Set: setName, Concepts: concepts}, nil
 }
 
-func parseDescriptionSections(body string) map[string]string {
-	descriptions := make(map[string]string)
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func parseSections(body string) map[string]string {
+	sections := make(map[string]string)
 	lines := strings.Split(body, "\n")
 
 	var currentID string
-	var currentDesc strings.Builder
+	var currentContent strings.Builder
 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "## ") {
 			if currentID != "" {
-				descriptions[currentID] = strings.TrimSpace(currentDesc.String())
-				currentDesc.Reset()
+				sections[currentID] = strings.TrimSpace(currentContent.String())
+				currentContent.Reset()
 			}
 			currentID = strings.TrimPrefix(line, "## ")
 			currentID = strings.TrimSpace(currentID)
 		} else if currentID != "" {
-			currentDesc.WriteString(line)
-			currentDesc.WriteString("\n")
+			currentContent.WriteString(line)
+			currentContent.WriteString("\n")
 		}
 	}
 
 	if currentID != "" {
-		descriptions[currentID] = strings.TrimSpace(currentDesc.String())
+		sections[currentID] = strings.TrimSpace(currentContent.String())
 	}
 
-	return descriptions
+	return sections
 }

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-07-18
+
+### Added
+- `ken notes <subject>` — interactive note management (create, edit, delete, search)
+- `ken summaries <subject>` — summary management with subject-scoped summaries
+- `ken read <subject>` — read plain markdown content from `notes/` directory
+- Note taking in flashcard/quiz study (`n` key, non-interrupting, auto-linked to current context)
+- Notes can link to concepts, cards, quizzes, other notes, or be unlinked
+- Summaries: content-parsed (`## <id>:summary`) + user-created, both shown when they exist
+- Concept initialization: concepts auto-loaded when running flashcards/quiz
+- Markdown rendering via glamour for all user-facing content
+- Mermaid diagram support: ASCII quick view + SVG export
+- Diagram/Link fields in concept frontmatter
+- Vim motions (j/k/gg/G) in list views
+- Dashboard shows note/summary/read file counts
+
+### Changed
+- Parser now extracts Diagram, Link, and Summary fields from concept files
+- Progress model includes Notes and Summaries collections with CRUD methods
+- Flashcard/quiz TUI shows note input panel without interrupting study flow
+
 ## [0.2.0] - 2025-07-18
 
 ### Added

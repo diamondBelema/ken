@@ -8,20 +8,25 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/discovery"
+	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
+	"github.com/diamondBelema/ken/internal/study"
 )
 
 type ProgressModel struct {
-	subject  string
-	subjects []discovery.SubjectInfo
-	progData map[string]*progress.Progress
-	err      error
+	subject     string
+	subjects    []discovery.SubjectInfo
+	progData    map[string]*progress.Progress
+	conceptData map[string][]parser.Concept
+	err         error
+	viewWidth   int
 }
 
 type progressLoadedMsg struct {
-	subject  string
-	subjects []discovery.SubjectInfo
-	progData map[string]*progress.Progress
+	subject     string
+	subjects    []discovery.SubjectInfo
+	progData    map[string]*progress.Progress
+	conceptData map[string][]parser.Concept
 }
 
 type progressErrMsg struct {
@@ -46,6 +51,7 @@ func (m ProgressModel) Init() tea.Cmd {
 		}
 
 		progData := make(map[string]*progress.Progress)
+		conceptData := make(map[string][]parser.Concept)
 		for _, s := range subjects {
 			progPath, err := progress.SubjectPath(s.Name)
 			if err != nil {
@@ -56,9 +62,14 @@ func (m ProgressModel) Init() tea.Cmd {
 				continue
 			}
 			progData[s.Name] = prog
+
+			concepts, err := study.LoadConcepts(subjectsDir, s.Name)
+			if err == nil {
+				conceptData[s.Name] = concepts
+			}
 		}
 
-		return progressLoadedMsg{subject: m.subject, subjects: subjects, progData: progData}
+		return progressLoadedMsg{subject: m.subject, subjects: subjects, progData: progData, conceptData: conceptData}
 	}
 }
 
@@ -68,6 +79,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.subject = msg.subject
 		m.subjects = msg.subjects
 		m.progData = msg.progData
+		m.conceptData = msg.conceptData
 	case progressErrMsg:
 		m.err = msg.err
 	case tea.KeyMsg:
@@ -75,6 +87,8 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.viewWidth = msg.Width
 	}
 	return m, nil
 }
@@ -111,6 +125,8 @@ func (m ProgressModel) View() string {
 			continue
 		}
 
+		concepts := m.conceptData[s.Name]
+
 		b.WriteString(subtitleStyle.Render(s.Name))
 		b.WriteString("\n")
 
@@ -125,10 +141,77 @@ func (m ProgressModel) View() string {
 				}
 			}
 			b.WriteString(fmt.Sprintf("  %s: %s\n", id, status))
+
+			for _, c := range concepts {
+				if c.ID == id {
+					if c.Description != "" {
+						desc := c.Description
+						if len(desc) > 80 {
+							desc = desc[:80] + "..."
+						}
+						desc = strings.ReplaceAll(desc, "\n", " ")
+						b.WriteString(fmt.Sprintf("    Description: %s\n", desc))
+					}
+
+					if c.Summary != "" {
+						b.WriteString(fmt.Sprintf("    Content Summary: %s\n", truncate(c.Summary, 80)))
+					}
+
+					userSummaries := prog.SummariesForConcept(id)
+					for _, s := range userSummaries {
+						b.WriteString(fmt.Sprintf("    User Summary: %s\n", s.Title))
+					}
+
+					notes := prog.NotesForConcept(id)
+					if len(notes) > 0 {
+						b.WriteString(fmt.Sprintf("    Notes (%d):\n", len(notes)))
+						for _, n := range notes {
+							preview := n.Content
+							if len(preview) > 60 {
+								preview = preview[:60] + "..."
+							}
+							preview = strings.ReplaceAll(preview, "\n", " ")
+							b.WriteString(fmt.Sprintf("      - \"%s\"\n", preview))
+						}
+					}
+
+					if len(c.Diagrams) > 0 {
+						b.WriteString("    Diagrams: ")
+						for i, d := range c.Diagrams {
+							if i > 0 {
+								b.WriteString(", ")
+							}
+							b.WriteString(d.Label)
+						}
+						b.WriteString("\n")
+					}
+
+					if len(c.Links) > 0 {
+						b.WriteString("    Links: ")
+						for i, l := range c.Links {
+							if i > 0 {
+								b.WriteString(", ")
+							}
+							b.WriteString(fmt.Sprintf("[%s](%s)", l.Title, l.Type))
+						}
+						b.WriteString("\n")
+					}
+
+					break
+				}
+			}
 		}
 		b.WriteString("\n")
 	}
 
 	b.WriteString(helpStyle.Render("Press q to exit."))
 	return b.String()
+}
+
+func truncate(s string, max int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }

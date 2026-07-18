@@ -197,7 +197,7 @@ func (m QuizModel) checkAnswer() QuizModel {
 
 	switch q.Type {
 	case "mcq":
-		userAnswer = m.selected
+		userAnswer = m.selected + 1
 	case "true_false":
 		userAnswer = m.selected == 1
 	}

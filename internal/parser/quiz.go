@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -67,8 +68,19 @@ func ParseQuizSet(data []byte) (QuizSet, error) {
 		var options []string
 		if optsRaw, ok := qm["options"].([]interface{}); ok {
 			for _, o := range optsRaw {
-				if s, ok := o.(string); ok {
-					options = append(options, s)
+				switch v := o.(type) {
+				case string:
+					options = append(options, v)
+				case int:
+					options = append(options, strconv.Itoa(v))
+				case float64:
+					options = append(options, strconv.FormatFloat(v, 'f', -1, 64))
+				case bool:
+					if v {
+						options = append(options, "true")
+					} else {
+						options = append(options, "false")
+					}
 				}
 			}
 		}

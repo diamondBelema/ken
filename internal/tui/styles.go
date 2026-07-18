@@ -95,4 +95,77 @@ var (
 	borderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorBorder)
+
+	// Dashboard styles
+	dashCardStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorMuted).
+			Padding(0, 1).
+			MarginBottom(1)
+
+	dashCardSelectedStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(colorPrimary).
+				Padding(0, 1).
+				MarginBottom(1)
+
+	dashSubjectStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorTextBright)
+
+	dashSubjectSelectedStyle = lipgloss.NewStyle().
+					Bold(true).
+					Foreground(colorPrimary)
+
+	dashDetailStyle = lipgloss.NewStyle().
+				Foreground(colorMuted)
+
+	dashBadgeDueStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorWarning)
+
+	dashBadgeNeverStyle = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Italic(true)
+
+	dashHintStyle = lipgloss.NewStyle().
+			Foreground(colorAccent).
+			Italic(true)
+
+	dashActionBarStyle = lipgloss.NewStyle().
+				Foreground(colorTextBright).
+				Bold(true)
+
+	dashActionItemStyle = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				PaddingRight(2)
+
+	dashActionItemSelStyle = lipgloss.NewStyle().
+				Foreground(colorPrimary).
+				Bold(true).
+				PaddingRight(2)
+
+	dashFilterStyle = lipgloss.NewStyle().
+				Foreground(colorAccent).
+				Bold(true)
+
+	dashHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorTextBright).
+				MarginBottom(0)
+
+	dashTaglineStyle = lipgloss.NewStyle().
+				Foreground(colorText).
+				MarginBottom(1)
+
+	dashStatsRowStyle = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				MarginBottom(1)
+
+	dashBarFilledStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	dashBarEmptyStyle = lipgloss.NewStyle().Foreground(colorMuted)
+
+	dashBarAmberStyle = lipgloss.NewStyle().Foreground(colorWarning)
+	dashBarRedStyle    = lipgloss.NewStyle().Foreground(colorDanger)
+	dashBarTealStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("45"))
 )

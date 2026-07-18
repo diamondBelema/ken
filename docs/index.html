@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ken — a terminal study harness</title>
+  <meta name="description" content="A terminal-based spaced-repetition study harness that reads Markdown flashcards, tracks mastery with Bayesian confidence, and never writes to your content folder.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <!-- Add asciinema-player CSS/JS when .cast file is recorded:
+       <link rel="stylesheet" href="https://asciinema.org/a/XXXXXX.css">
+       <script src="https://asciinema.org/a/XXXXXX.js" async></script>
+  -->
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav" aria-label="Primary">
+    <div class="nav__inner">
+      <a href="./" class="nav__brand" aria-current="page">ken</a>
+      <ul class="nav__links">
+        <li><a href="./">Home</a></li>
+        <li><a href="docs.html">Docs</a></li>
+        <li><a href="https://github.com/diamondBelema/ken" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="container">
+      <h1 class="hero__title">ken</h1>
+      <p class="hero__sub">A terminal study harness that forgets nothing on purpose.</p>
+
+      <div class="install-pill">
+        <span class="install-pill__cmd" id="install-cmd">go install github.com/diamondBelema/ken@latest</span>
+        <button class="install-pill__copy" id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+      </div>
+
+      <div class="hero-terminal">
+        <div class="hero-terminal__bar">
+          <span class="hero-terminal__dot"></span>
+          <span class="hero-terminal__dot"></span>
+          <span class="hero-terminal__dot"></span>
+          <span class="hero-terminal__label">ken</span>
+        </div>
+        <div class="hero-terminal__body" id="terminal-player">
+          <!-- asciinema-player loads here if .cast file available -->
+          <!-- fallback: static screenshot -->
+          <div class="hero-terminal__fallback" id="terminal-fallback">
+            <img src="./screenshot.png" alt="ken dashboard showing subjects and progress" width="800" height="400" loading="eager">
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- How it works (numbered sequence — the ONE numbered list) -->
+  <section>
+    <div class="container">
+      <h2 class="section-heading">How content becomes a study session</h2>
+      <ol class="steps">
+        <li class="steps__item">
+          <span class="steps__num" aria-hidden="true"></span>
+          <p class="steps__text"><strong>An agent writes Markdown.</strong> Plain <code>.md</code> files with YAML frontmatter — concepts, flashcards, quizzes — dropped into a folder. No special editor, no format conversion, no build step.</p>
+        </li>
+        <li class="steps__item">
+          <span class="steps__num" aria-hidden="true"></span>
+          <p class="steps__text"><strong>ken reads the folder, never writes to it.</strong> Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your course material's git repo stays clean — no progress files, no state drift.</p>
+        </li>
+        <li class="steps__item">
+          <span class="steps__num" aria-hidden="true"></span>
+          <p class="steps__text"><strong>Confidence updates live in your state dir.</strong> Every flashcard flip and quiz answer feeds a Bayesian model with time-decay. Mastery lives on <em>concepts</em>, not cards — cards are evidence, not the thing being scored.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Feature cards (parallel — NOT numbered) -->
+  <section>
+    <div class="container">
+      <div class="features">
+        <article class="feature-card">
+          <h3 class="feature-card__title">Confidence over cramming</h3>
+          <p class="feature-card__body">A Bayesian confidence engine with time-decay tracks what you actually know — not how many cards you flipped today. Concepts you struggle with resurface; mastered ones fade naturally.</p>
+        </article>
+        <article class="feature-card">
+          <h3 class="feature-card__title">Any AI agent can write your deck</h3>
+          <p class="feature-card__body">Content is plain Markdown + YAML in a folder. Any agent — opencode, Claude Code, Cursor — can bulk-generate it. ken doesn't care how the folder was populated, only that the IDs are unique.</p>
+        </article>
+        <article class="feature-card">
+          <h3 class="feature-card__title">Your progress isn't in your repo</h3>
+          <p class="feature-card__body">Content and progress are hard-separated. Course materials live in <code>~/Documents/learn/subjects/</code> (read-only). Progress lives in <code>~/.local/share/ken/</code>. Your git stays clean.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install / quick start -->
+  <section class="install-section">
+    <div class="container">
+      <h2 class="section-heading">Install</h2>
+      <div class="install-block">
+        <div class="install-block__label">From source</div>
+        <pre><code>git clone https://github.com/diamondBelema/ken.git
+cd ken
+go build -o ken ./cmd/ken
+mv ken ~/.local/bin/</code></pre>
+        <a href="docs.html">Read the full docs &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>&copy; 2025 ken contributors</span>
+      <ul class="footer__links">
+        <li><a href="https://github.com/diamondBelema/ken" rel="noopener">GitHub</a></li>
+        <li><a href="https://github.com/diamondBelema/ken/blob/main/LICENSE" rel="noopener">License</a></li>
+        <li><a href="https://github.com/diamondBelema/ken/blob/main/CHANGELOG.md" rel="noopener">Changelog</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+    // Copy install command
+    (function() {
+      var btn = document.getElementById('copy-btn');
+      var cmd = document.getElementById('install-cmd');
+      if (!btn || !cmd) return;
+      btn.addEventListener('click', function() {
+        navigator.clipboard.writeText(cmd.textContent.trim()).then(function() {
+          btn.textContent = 'Copied';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      });
+    })();
+
+    // Scroll-reveal for feature cards (respects prefers-reduced-motion)
+    (function() {
+      var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var cards = document.querySelectorAll('.feature-card');
+      if (prefersReduced || !cards.length) {
+        // If reduced motion, show immediately
+        for (var i = 0; i < cards.length; i++) cards[i].classList.add('visible');
+        return;
+      }
+      if (!('IntersectionObserver' in window)) {
+        for (var i = 0; i < cards.length; i++) cards[i].classList.add('visible');
+        return;
+      }
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      cards.forEach(function(card) { observer.observe(card); });
+    })();
+  </script>
+
+</body>
+</html>

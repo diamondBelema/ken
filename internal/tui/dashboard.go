@@ -156,20 +156,47 @@ func (m DashboardModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m DashboardModel) handleBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	filtered := m.filteredSubjects()
+	cols := m.columnCount()
 
 	switch msg.String() {
 	case "q", "esc", "ctrl+c":
 		return m, tea.Quit
 	case "j", "down":
+		if cols > 1 {
+			if m.selected+cols < len(filtered) {
+				m.selected += cols
+			} else if m.selected < len(filtered)-1 {
+				m.selected = len(filtered) - 1
+			}
+		} else {
+			if m.selected < len(filtered)-1 {
+				m.selected++
+			}
+		}
+		m.clampScroll()
+	case "k", "up":
+		if cols > 1 {
+			if m.selected-cols >= 0 {
+				m.selected -= cols
+			} else {
+				m.selected = 0
+			}
+		} else {
+			if m.selected > 0 {
+				m.selected--
+			}
+		}
+		m.clampScroll()
+	case "l", "right":
 		if m.selected < len(filtered)-1 {
 			m.selected++
-			m.clampScroll()
 		}
-	case "k", "up":
+		m.clampScroll()
+	case "h", "left":
 		if m.selected > 0 {
 			m.selected--
-			m.clampScroll()
 		}
+		m.clampScroll()
 	case "g", "home":
 		m.selected = 0
 		m.clampScroll()
@@ -190,7 +217,7 @@ func (m DashboardModel) handleBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(filtered) > 0 {
 			return m, m.launch(filtered[m.selected].Name, "flashcards")
 		}
-	case "t": // quiz uses 't' since 'q' is quit
+	case "t":
 		if len(filtered) > 0 {
 			return m, m.launch(filtered[m.selected].Name, "quiz")
 		}
@@ -272,7 +299,6 @@ func (m DashboardModel) handleFiltering(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.clampScroll()
 		return m, nil
 	case "j", "k":
-		// Don't consume j/k while filtering — let them go to the text input
 	}
 
 	var cmd tea.Cmd
@@ -304,28 +330,38 @@ func (m DashboardModel) filteredSubjects() []discovery.SubjectInfo {
 }
 
 func (m *DashboardModel) clampScroll() {
-	visible := m.visibleCount()
+	visible := m.visibleRows()
 	if m.selected < m.scrollTop {
 		m.scrollTop = m.selected
 	}
-	if m.selected >= m.scrollTop+visible {
-		m.scrollTop = m.selected - visible + 1
+	if m.selected >= m.scrollTop+visible*m.columnCount() {
+		m.scrollTop = m.selected - visible*m.columnCount() + m.columnCount()
 	}
 	if m.scrollTop < 0 {
 		m.scrollTop = 0
 	}
 }
 
-func (m DashboardModel) visibleCount() int {
+func (m DashboardModel) visibleRows() int {
 	if m.height == 0 {
-		return 24
+		return 4
 	}
-	// header ~5 lines, footer ~3 lines, each card ~5 lines + margin
-	available := m.height - 8
-	if available < 1 {
-		available = 1
+	available := m.height - 10
+	rows := available / 5
+	if rows < 1 {
+		rows = 1
 	}
-	return available
+	return rows
+}
+
+func (m DashboardModel) columnCount() int {
+	if m.width >= 120 {
+		return 3
+	}
+	if m.width >= 72 {
+		return 2
+	}
+	return 1
 }
 
 func (m DashboardModel) View() string {
@@ -342,11 +378,9 @@ func (m DashboardModel) View() string {
 
 	var b strings.Builder
 
-	// Header
 	b.WriteString(m.renderHeader())
 	b.WriteString("\n")
 
-	// Filter line
 	if m.state == dashFiltering || m.filterText != "" {
 		filterLabel := dashFilterStyle.Render(" / ")
 		filterLine := filterLabel + m.filterInput.View()
@@ -354,40 +388,22 @@ func (m DashboardModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// Subject cards
 	filtered := m.filteredSubjects()
 	if len(filtered) == 0 {
 		if m.filterText != "" {
-			b.WriteString("\n  ")
-			b.WriteString(dashDetailStyle.Render("No subjects match your filter."))
+			b.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
+			b.WriteString("\n")
 		} else {
 			b.WriteString(m.renderEmptyState())
 		}
 	} else {
-		visible := m.visibleCount()
-		end := m.scrollTop + visible
-		if end > len(filtered) {
-			end = len(filtered)
-		}
-		for i := m.scrollTop; i < end; i++ {
-			card := m.renderSubjectCard(filtered[i], i == m.selected)
-			b.WriteString(centerBlock(card, m.width))
-			b.WriteString("\n")
-		}
-		// Scroll indicator
-		if len(filtered) > visible {
-			scrollInfo := fmt.Sprintf("  %d-%d of %d", m.scrollTop+1, end, len(filtered))
-			b.WriteString(dashDetailStyle.Render(scrollInfo))
-			b.WriteString("\n")
-		}
+		b.WriteString(m.renderGrid(filtered))
 	}
 
-	// Action row (inline below selected card)
 	if m.state == dashActionRow && len(filtered) > 0 {
 		b.WriteString(m.renderActionRow())
 	}
 
-	// Help bar
 	b.WriteString("\n")
 	b.WriteString(centerBlock(m.renderHelpBar(), m.width))
 
@@ -395,16 +411,18 @@ func (m DashboardModel) View() string {
 }
 
 func (m DashboardModel) renderHeader() string {
+	cols := m.columnCount()
+	colWidth := (m.width - 2*(cols-1)) / cols
+	totalBarWidth := cols*colWidth + 2*(cols-1)
+
 	var b strings.Builder
 
-	b.WriteString("  ")
-	b.WriteString(dashHeaderStyle.Render("ken"))
-	b.WriteString("\n")
-	b.WriteString("  ")
-	b.WriteString(dashTaglineStyle.Render("a terminal study harness that forgets nothing on purpose"))
+	title := dashHeaderStyle.Render("ken")
+	tagline := dashTaglineStyle.Render("terminal study harness")
+	headerLine := title + "  " + tagline
+	b.WriteString(centerBlock(headerLine, m.width))
 	b.WriteString("\n")
 
-	// Confidence distribution
 	weak, dev, strong, total := 0, 0, 0, 0
 	for _, s := range m.subjects {
 		prog := m.progData[s.Name]
@@ -429,22 +447,153 @@ func (m DashboardModel) renderHeader() string {
 	}
 
 	if total > 0 {
-		weakPct := weak * 30 / total
-		devPct := dev * 30 / total
-		strongPct := 30 - weakPct - devPct
+		barWidth := 20
+		if totalBarWidth > 80 {
+			barWidth = 30
+		}
+		weakPct := weak * barWidth / total
+		devPct := dev * barWidth / total
+		strongPct := barWidth - weakPct - devPct
 
-		distLine := fmt.Sprintf("  Weak %s%s  ·  Developing %s%s  ·  Strong %s%s  ·  %d concepts",
-			dashDistWeakStyle.Render(strings.Repeat("█", weakPct)+strings.Repeat("░", 30-weakPct)),
-			dashDistWeakStyle.Render(fmt.Sprintf(" %d", weak)),
-			dashDistDevStyle.Render(strings.Repeat("█", devPct)+strings.Repeat("░", 30-devPct)),
-			dashDistDevStyle.Render(fmt.Sprintf(" %d", dev)),
-			dashDistStrongStyle.Render(strings.Repeat("█", strongPct)+strings.Repeat("░", 30-strongPct)),
-			dashDistStrongStyle.Render(fmt.Sprintf(" %d", strong)),
+		distLine := fmt.Sprintf("Weak %s %d  ·  Developing %s %d  ·  Strong %s %d  ·  %d concepts",
+			dashDistWeakStyle.Render(strings.Repeat("█", weakPct)+strings.Repeat("░", barWidth-weakPct)),
+			weak,
+			dashDistDevStyle.Render(strings.Repeat("█", devPct)+strings.Repeat("░", barWidth-devPct)),
+			dev,
+			dashDistStrongStyle.Render(strings.Repeat("█", strongPct)+strings.Repeat("░", barWidth-strongPct)),
+			strong,
 			total)
-		b.WriteString(dashStatsRowStyle.Render(distLine))
+		b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.width))
 	}
 
 	return b.String()
+}
+
+func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
+	cols := m.columnCount()
+	colWidth := (m.width - 2*(cols-1)) / cols
+	if colWidth < 20 {
+		colWidth = 20
+	}
+
+	visible := m.visibleRows()
+	startRow := m.scrollTop / cols
+	if m.scrollTop%cols != 0 {
+		startRow++
+	}
+	startIdx := startRow * cols
+	if startIdx > len(filtered) {
+		startIdx = len(filtered)
+	}
+	endIdx := startIdx + visible*cols
+	if endIdx > len(filtered) {
+		endIdx = len(filtered)
+	}
+
+	var rows []string
+	for i := startIdx; i < endIdx; i += cols {
+		end := i + cols
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		rowCards := filtered[i:end]
+		var rendered []string
+		for j, s := range rowCards {
+			selected := (i+j) == m.selected
+			rendered = append(rendered, m.renderSubjectCard(s, selected, colWidth))
+		}
+		if len(rendered) > 1 {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, rendered...))
+		} else {
+			rows = append(rows, rendered[0])
+		}
+	}
+
+	totalRows := (len(filtered) + cols - 1) / cols
+	if totalRows > visible {
+		scrollInfo := fmt.Sprintf("  %d-%d of %d subjects", startIdx+1, endIdx, len(filtered))
+		rows = append(rows, dashDetailStyle.Render(scrollInfo))
+	}
+
+	return strings.Join(rows, "\n") + "\n"
+}
+
+func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool, colWidth int) string {
+	prog := m.progData[s.Name]
+	concepts := m.conceptData[s.Name]
+	conceptCount := len(concepts)
+	noteCount := 0
+	if prog != nil {
+		noteCount = len(prog.Notes)
+	}
+
+	due := m.dueCount(s.Name)
+
+	name := s.Name
+	if selected {
+		name = dashSubjectSelectedStyle.Render(s.Name)
+	} else {
+		name = dashSubjectStyle.Render(s.Name)
+	}
+
+	badge := ""
+	if due > 0 {
+		badge = "  " + dashBadgeDueStyle.Render(fmt.Sprintf("%d due", due))
+	}
+
+	lastStudied := m.lastStudiedText(s.Name)
+	ts := ""
+	if lastStudied != "" {
+		ts = " " + dashDetailStyle.Render(lastStudied)
+	}
+
+	line1 := name + badge + ts
+
+	avg := 0.0
+	count := 0
+	if prog != nil {
+		for _, cs := range prog.Concepts {
+			avg += cs.Confidence
+			count++
+		}
+	}
+	if count > 0 {
+		avg = avg / float64(count) * 100
+	}
+	var confStyle lipgloss.Style
+	switch {
+	case avg < 30:
+		confStyle = dashDistWeakStyle
+	case avg < 70:
+		confStyle = dashDistDevStyle
+	default:
+		confStyle = dashDistStrongStyle
+	}
+	line2 := fmt.Sprintf("  %s  %d·%d·%d",
+		confStyle.Render(fmt.Sprintf("%.0f%%", avg)),
+		conceptCount,
+		m.cardCounts[s.Name],
+		m.quizCounts[s.Name])
+
+	var lines []string
+	lines = append(lines, line1)
+	lines = append(lines, line2)
+	if noteCount > 0 {
+		lines = append(lines, "  "+dashDetailStyle.Render(fmt.Sprintf("%d notes", noteCount)))
+	}
+
+	content := strings.Join(lines, "\n")
+
+	style := dashCardStyle.
+		Width(colWidth - 4).
+		Padding(0, 1)
+	if selected {
+		style = dashCardSelectedStyle.
+			Width(colWidth - 4).
+			Padding(0, 1)
+	}
+
+	return style.Render(content)
 }
 
 func (m DashboardModel) renderEmptyState() string {
@@ -471,96 +620,8 @@ func (m DashboardModel) renderEmptyState() string {
 	b.WriteString("\n")
 	b.WriteString(strings.Repeat(" ", leftPad))
 	b.WriteString(box)
-	b.WriteString("\n\n  ")
-	b.WriteString(helpStyle.Render("q quit"))
+	b.WriteString("\n")
 	return b.String()
-}
-
-func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool) string {
-	prog := m.progData[s.Name]
-	concepts := m.conceptData[s.Name]
-	conceptCount := len(concepts)
-	noteCount := 0
-	if prog != nil {
-		noteCount = len(prog.Notes)
-	}
-
-	var lines []string
-
-	// Subject name + due badge
-	name := dashSubjectStyle.Render(s.Name)
-	if selected {
-		name = dashSubjectSelectedStyle.Render(s.Name)
-	}
-
-	due := m.dueCount(s.Name)
-	badge := ""
-	if due > 0 {
-		badge = "  " + dashBadgeDueStyle.Render(fmt.Sprintf("%d due", due))
-	}
-
-	lastStudied := m.lastStudiedText(s.Name)
-	timestamp := ""
-	if lastStudied != "" {
-		timestamp = "  " + dashDetailStyle.Render(lastStudied)
-	}
-
-	lines = append(lines, name+badge+timestamp)
-
-	// Confidence bar
-	lines = append(lines, "  "+m.renderConfidenceBar(prog, conceptCount))
-
-	// Stats line
-	stats := fmt.Sprintf("  %d concepts  ·  %d cards  ·  %d quizzes  ·  %d notes",
-		conceptCount, m.cardCounts[s.Name], m.quizCounts[s.Name], noteCount)
-	lines = append(lines, dashDetailStyle.Render(stats))
-
-	// Hint for unstudied subjects
-	if conceptCount > 0 && due == conceptCount {
-		lines = append(lines, "  "+dashHintStyle.Render("press f to start studying"))
-	}
-
-	// Pad all lines to the same width so the card border wraps evenly
-	content := padLines(lines)
-
-	style := dashCardStyle
-	if selected {
-		style = dashCardSelectedStyle
-	}
-	return style.Render(content)
-}
-
-func (m DashboardModel) renderConfidenceBar(prog *progress.Progress, total int) string {
-	if total == 0 {
-		return dashDetailStyle.Render("no concepts")
-	}
-
-	sum := 0.0
-	count := 0
-	if prog != nil {
-		for _, cs := range prog.Concepts {
-			sum += cs.Confidence
-			count++
-		}
-	}
-
-	if count == 0 {
-		return dashDetailStyle.Render("0% confidence")
-	}
-
-	avg := sum / float64(count) * 100
-
-	var style lipgloss.Style
-	switch {
-	case avg < 30:
-		style = dashDistWeakStyle
-	case avg < 70:
-		style = dashDistDevStyle
-	default:
-		style = dashDistStrongStyle
-	}
-
-	return style.Render(fmt.Sprintf("%.0f%% confidence", avg))
 }
 
 func (m DashboardModel) dueCount(subject string) int {
@@ -608,15 +669,15 @@ func (m DashboardModel) lastStudiedText(subject string) string {
 		return "just now"
 	case diff < 3600:
 		mins := diff / 60
-		return fmt.Sprintf("last studied %dm ago", mins)
+		return fmt.Sprintf("%dm ago", mins)
 	case diff < 86400:
 		hours := diff / 3600
-		return fmt.Sprintf("last studied %dh ago", hours)
+		return fmt.Sprintf("%dh ago", hours)
 	case diff < 172800:
-		return "last studied yesterday"
+		return "yesterday"
 	default:
 		days := diff / 86400
-		return fmt.Sprintf("last studied %dd ago", days)
+		return fmt.Sprintf("%dd ago", days)
 	}
 }
 
@@ -635,22 +696,17 @@ func (m DashboardModel) renderActionRow() string {
 	}
 
 	row := dashActionBarStyle.Render("→ ") + strings.Join(items, "  ")
-	rowWidth := lipgloss.Width(row)
-	leftPad := (m.width - rowWidth) / 2
-	if leftPad < 0 {
-		leftPad = 0
-	}
-	return strings.Repeat(" ", leftPad) + row + "\n"
+	return centerBlock(row, m.width) + "\n"
 }
 
 func (m DashboardModel) renderHelpBar() string {
 	if m.state == dashActionRow {
-		return helpStyle.Render("  j/k select  ·  enter launch  ·  esc back")
+		return helpStyle.Render("j/k select  ·  enter launch  ·  esc back")
 	}
 	if m.state == dashFiltering {
-		return helpStyle.Render("  type to filter  ·  enter confirm  ·  esc clear")
+		return helpStyle.Render("type to filter  ·  enter confirm  ·  esc clear")
 	}
-	return helpStyle.Render("  j/k navigate  ·  enter actions  ·  f/t/n/s/r/p quick launch  ·  / filter  ·  q quit")
+	return helpStyle.Render("hjkl navigate  ·  enter actions  ·  f/t/n/s/r/p launch  ·  / filter  ·  q quit")
 }
 
 func actionNameForIndex(idx int) string {
@@ -707,26 +763,6 @@ func countQuizzes(subjectsDir, subject string) int {
 		count += len(set.Questions)
 	}
 	return count
-}
-
-func padLines(lines []string) string {
-	maxW := 0
-	for _, l := range lines {
-		w := lipgloss.Width(l)
-		if w > maxW {
-			maxW = w
-		}
-	}
-	padded := make([]string, len(lines))
-	for i, l := range lines {
-		w := lipgloss.Width(l)
-		if w < maxW {
-			padded[i] = l + strings.Repeat(" ", maxW-w)
-		} else {
-			padded[i] = l
-		}
-	}
-	return strings.Join(padded, "\n")
 }
 
 func centerBlock(text string, width int) string {

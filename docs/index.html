@@ -3,15 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ken — a terminal study harness</title>
-  <meta name="description" content="A terminal-based spaced-repetition study harness that reads Markdown flashcards, tracks mastery with Bayesian confidence, and never writes to your content folder.">
+  <title>ken — terminal study harness</title>
+  <meta name="description" content="A terminal-based spaced-repetition study harness. Markdown flashcards, Bayesian confidence tracking, content stays read-only.">
   <link rel="icon" href="./ken.jpeg" type="image/jpeg">
-  <meta property="og:title" content="ken — a terminal study harness">
-  <meta property="og:description" content="A terminal-based spaced-repetition study harness that reads Markdown flashcards, tracks mastery with Bayesian confidence, and never writes to your content folder.">
+  <meta property="og:title" content="ken — terminal study harness">
+  <meta property="og:description" content="Markdown flashcards. Bayesian confidence tracking. Content stays read-only.">
   <meta property="og:image" content="./ken.jpeg">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -19,7 +22,7 @@
   <nav class="nav" aria-label="Primary">
     <div class="nav__inner">
       <a href="./" class="nav__brand" aria-current="page">
-        <img src="./ken.jpeg" alt="ken logo">
+        <img src="./ken.jpeg" alt="">
         <span>ken</span>
       </a>
       <ul class="nav__links">
@@ -34,9 +37,9 @@
     <div class="container">
       <div class="hero__layout">
         <div>
-          <span class="hero__kicker">Terminal-first learning, thoughtfully designed</span>
+          <div class="hero__kicker">Terminal study harness</div>
           <h1 class="hero__title">ken</h1>
-          <p class="hero__sub">A terminal study harness that keeps your content clean and your progress measurable with Bayesian confidence.</p>
+          <p class="hero__sub">Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only. Progress lives in your state directory.</p>
 
           <div class="install-pill">
             <span class="install-pill__cmd" id="install-cmd">go install github.com/diamondBelema/ken@latest</span>
@@ -45,7 +48,7 @@
         </div>
 
         <figure class="hero__media">
-          <img src="./ken.jpeg" alt="ken brand image" loading="eager" width="900" height="900">
+          <img src="./ken.jpeg" alt="ken" loading="eager" width="900" height="900">
         </figure>
       </div>
 
@@ -56,9 +59,9 @@
           <span class="hero-terminal__dot"></span>
           <span class="hero-terminal__label">ken</span>
         </div>
-        <div class="hero-terminal__body" id="terminal-player">
-          <div class="hero-terminal__fallback" id="terminal-fallback">
-            <img src="./screenshot.png" alt="ken dashboard showing subjects and progress" width="800" height="400" loading="eager">
+        <div class="hero-terminal__body">
+          <div class="hero-terminal__fallback">
+            <img src="./screenshot.png" alt="ken dashboard" width="800" height="400" loading="eager">
           </div>
         </div>
       </div>
@@ -67,55 +70,83 @@
 
   <section>
     <div class="container">
-      <h2 class="section-heading">How content becomes a study session</h2>
-      <p class="section-intro">ken is designed around durable study assets and clean separation of content from learner state.</p>
+      <div class="section-header">
+        <div class="section-label">How it works</div>
+        <h2 class="section-heading">Content to study session</h2>
+        <p class="section-intro">Drop Markdown files into a folder. ken reads them, tracks your mastery, and never writes back.</p>
+      </div>
       <ol class="steps">
         <li class="steps__item">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>An agent writes Markdown.</strong> Plain <code>.md</code> files with YAML frontmatter — concepts, flashcards, quizzes — dropped into a folder. No special editor, no format conversion, no build step.</p>
+          <p class="steps__text"><strong>Write Markdown with YAML frontmatter.</strong> Concepts, flashcards, quizzes — plain .md files in a folder structure. No editor required, no build step.</p>
         </li>
         <li class="steps__item">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>ken reads the folder, never writes to it.</strong> Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your course material's git repo stays clean — no progress files, no state drift.</p>
+          <p class="steps__text"><strong>ken reads the folder, never writes to it.</strong> Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your git repo stays clean.</p>
         </li>
         <li class="steps__item">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>Confidence updates live in your state dir.</strong> Every flashcard flip and quiz answer feeds a Bayesian model with time-decay. Mastery lives on <em>concepts</em>, not cards — cards are evidence, not the thing being scored.</p>
+          <p class="steps__text"><strong>Confidence updates in your state dir.</strong> Every interaction feeds a Bayesian model with time-decay. Mastery lives on concepts, not cards.</p>
         </li>
       </ol>
     </div>
   </section>
 
-  <section>
+  <section class="section-raised">
     <div class="container">
-      <h2 class="section-heading">Built for focused learning</h2>
+      <div class="section-header">
+        <div class="section-label">Features</div>
+        <h2 class="section-heading">Built for focused learning</h2>
+      </div>
       <div class="features">
         <article class="feature-card">
-          <h3 class="feature-card__title">Confidence over cramming</h3>
-          <p class="feature-card__body">A Bayesian confidence engine with time-decay tracks what you actually know — not how many cards you flipped today. Concepts you struggle with resurface; mastered ones fade naturally.</p>
+          <h3 class="feature-card__title">Bayesian confidence</h3>
+          <p class="feature-card__body">Tracks what you know, not how many cards you flipped. Concepts resurface based on time-decay and your response history.</p>
         </article>
         <article class="feature-card">
-          <h3 class="feature-card__title">Any AI agent can write your deck</h3>
-          <p class="feature-card__body">Content is plain Markdown + YAML in a folder. Any agent — opencode, Claude Code, Cursor — can bulk-generate it. ken doesn't care how the folder was populated, only that the IDs are unique.</p>
+          <h3 class="feature-card__title">Agent-friendly content</h3>
+          <p class="feature-card__body">Plain Markdown + YAML in a folder. Any AI agent can generate it. ken only cares that IDs are unique.</p>
         </article>
         <article class="feature-card">
-          <h3 class="feature-card__title">Your progress isn't in your repo</h3>
-          <p class="feature-card__body">Content and progress are hard-separated. Course materials live in <code>~/Documents/learn/subjects/</code> (read-only). Progress lives in <code>~/.local/share/ken/</code>. Your git stays clean.</p>
+          <h3 class="feature-card__title">Content and state separated</h3>
+          <p class="feature-card__body">Course materials in <code>~/Documents/learn/subjects/</code>. Progress in <code>~/.local/share/ken/</code>. Your repo stays clean.</p>
         </article>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat__value">310</div>
+          <div class="stat__label">Concepts</div>
+        </div>
+        <div class="stat">
+          <div class="stat__value">616</div>
+          <div class="stat__label">Flashcards</div>
+        </div>
+        <div class="stat">
+          <div class="stat__value">309</div>
+          <div class="stat__label">Quiz questions</div>
+        </div>
+        <div class="stat">
+          <div class="stat__value">5</div>
+          <div class="stat__label">Grading levels</div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="install-section">
+  <section>
     <div class="container">
-      <h2 class="section-heading">Install</h2>
+      <div class="section-header">
+        <div class="section-label">Install</div>
+        <h2 class="section-heading">Get started</h2>
+      </div>
       <div class="install-block">
         <div class="install-block__label">From source</div>
         <pre><code>git clone https://github.com/diamondBelema/ken.git
 cd ken
 go build -o ken ./cmd/ken
 mv ken ~/.local/bin/</code></pre>
-        <a href="docs.html">Read the full docs &rarr;</a>
+        <a class="install-block__link" href="docs.html">Read the full docs &rarr;</a>
       </div>
     </div>
   </section>
@@ -140,30 +171,9 @@ mv ken ~/.local/bin/</code></pre>
         navigator.clipboard.writeText(cmd.textContent.trim()).then(function() {
           btn.textContent = 'Copied';
           btn.classList.add('copied');
-          setTimeout(function() {
-            btn.textContent = 'Copy';
-            btn.classList.remove('copied');
-          }, 2000);
+          setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         });
       });
-    })();
-
-    (function() {
-      var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var cards = document.querySelectorAll('.feature-card');
-      if (prefersReduced || !cards.length || !('IntersectionObserver' in window)) {
-        for (var i = 0; i < cards.length; i++) cards[i].classList.add('visible');
-        return;
-      }
-      var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.15 });
-      cards.forEach(function(card) { observer.observe(card); });
     })();
   </script>
 

@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-07-18
+
 ### Added
-- XDG-compliant state separation: `~/.local/share/ken/` for all writable state
-- Content directory (`~/Documents/learn/subjects/`) is now 100% read-only
+- Phase 5: `ken` bare command — dashboard with confidence spread per subject
+- Phase 5: `ken progress [subject]` — per-concept confidence breakdown
+- Phase 5: `ken stats` — placeholder for confidence trends (no data yet)
+- Empty state handling: zero subjects, missing progress files
 
 ## [0.1.0] - 2025-07-18
 
@@ -25,3 +29,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 3: `internal/study` — flashcard session loading with duplicate ID detection
 - Phase 3: `internal/tui` — bubbletea flashcard study model (front/back flip, 5-level grading)
 - Phase 3: `cmd/ken/flashcards.go` — `ken flashcards <subject>` command
+- XDG-compliant state separation: `~/.local/share/ken/` for all writable state
+- Content directory (`~/Documents/learn/subjects/`) is now 100% read-only

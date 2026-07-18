@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/tui"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "ken",
-	Short: "Terminal-based spaced-repetition study harness",
+var statsCmd = &cobra.Command{
+	Use:   "stats",
+	Short: "View detailed stats and confidence trends",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		m := tui.NewDashboardModel()
+		m := tui.NewStatsModel()
 		p := tea.NewProgram(m)
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
@@ -22,8 +21,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+func init() {
+	rootCmd.AddCommand(statsCmd)
 }

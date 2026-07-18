@@ -2,18 +2,23 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/tui"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "ken",
-	Short: "Terminal-based spaced-repetition study harness",
+var progressCmd = &cobra.Command{
+	Use:   "progress [subject]",
+	Short: "View concept-level confidence breakdown",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		m := tui.NewDashboardModel()
+		subject := ""
+		if len(args) > 0 {
+			subject = args[0]
+		}
+
+		m := tui.NewProgressModel(subject)
 		p := tea.NewProgram(m)
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
@@ -22,8 +27,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+func init() {
+	rootCmd.AddCommand(progressCmd)
 }

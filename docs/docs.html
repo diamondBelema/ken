@@ -11,15 +11,17 @@
   <meta property="og:image" content="./ken.jpeg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 
-  <!-- Nav -->
   <nav class="nav" aria-label="Primary">
     <div class="nav__inner">
-      <a href="./" class="nav__brand">ken</a>
+      <a href="./" class="nav__brand">
+        <img src="./ken.jpeg" alt="ken logo">
+        <span>ken</span>
+      </a>
       <ul class="nav__links">
         <li><a href="./">Home</a></li>
         <li><a href="docs.html" aria-current="page">Docs</a></li>
@@ -27,6 +29,18 @@
       </ul>
     </div>
   </nav>
+
+  <header class="doc-hero">
+    <div class="container container--wide">
+      <div class="doc-hero__inner">
+        <div>
+          <h1 class="doc-hero__title">ken documentation</h1>
+          <p class="doc-hero__text">Installation, content modeling, and command reference for a clean and reliable terminal-based learning workflow.</p>
+        </div>
+        <img class="doc-hero__image" src="./ken.jpeg" alt="ken brand image" width="900" height="900" loading="lazy">
+      </div>
+    </div>
+  </header>
 
   <main class="doc-content">
     <div class="container container--wide">
@@ -193,7 +207,6 @@ questions:
     </div>
   </main>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="footer__inner">
       <span>&copy; 2025 ken contributors</span>

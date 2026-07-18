@@ -15,14 +15,19 @@ func SplitFrontmatter(data []byte) (map[string]interface{}, string, error) {
 
 	rest := data[3:]
 	idx := bytes.Index(rest, []byte("\n---"))
+	
+	var yamlBytes []byte
+	var body string
+	
 	if idx == -1 {
-		return nil, "", fmt.Errorf("no closing --- delimiter found")
-	}
-
-	yamlBytes := rest[:idx]
-	body := string(rest[idx+4:])
-	if strings.HasPrefix(body, "\n") {
-		body = body[1:]
+		yamlBytes = rest
+		body = ""
+	} else {
+		yamlBytes = rest[:idx]
+		body = string(rest[idx+4:])
+		if strings.HasPrefix(body, "\n") {
+			body = body[1:]
+		}
 	}
 
 	var raw map[string]interface{}

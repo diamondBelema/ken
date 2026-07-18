@@ -40,11 +40,15 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 	}
 
 	typeStr, _ := raw["type"].(string)
-	if typeStr != "concept_set" {
-		return ConceptSet{}, fmt.Errorf("expected type 'concept_set', got '%s'", typeStr)
-	}
-
 	setName, _ := raw["set"].(string)
+
+	if typeStr != "concept_set" {
+		if title, ok := raw["title"].(string); ok {
+			setName = title
+		} else if name, ok := raw["name"].(string); ok {
+			setName = name
+		}
+	}
 
 	conceptsRaw, ok := raw["concepts"].([]interface{})
 	if !ok {
@@ -67,6 +71,9 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 
 		name, _ := cm["name"].(string)
 		parentID, _ := cm["parent_id"].(string)
+		if parentID == "" {
+			parentID, _ = cm["parent"].(string)
+		}
 
 		var diagrams []Diagram
 		if diagsRaw, ok := cm["diagrams"].([]interface{}); ok {

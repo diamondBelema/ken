@@ -10,9 +10,18 @@ import (
 	"github.com/diamondBelema/ken/internal/render"
 )
 
+type readState int
+
+const (
+	readList readState = iota
+	readDetail
+)
+
 type ReadModel struct {
 	files      []parser.NoteFile
+	state      readState
 	selected   int
+	scrollTop  int
 	viewWidth  int
 	viewHeight int
 }
@@ -20,6 +29,7 @@ type ReadModel struct {
 func NewReadModel(files []parser.NoteFile) ReadModel {
 	return ReadModel{
 		files: files,
+		state: readList,
 	}
 }
 
@@ -33,24 +43,59 @@ func (m ReadModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewWidth = msg.Width
 		m.viewHeight = msg.Height
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "j", "down":
-			if m.selected < len(m.files)-1 {
-				m.selected++
+		switch m.state {
+		case readList:
+			switch msg.String() {
+			case "j", "down":
+				if m.selected < len(m.files)-1 {
+					m.selected++
+					m.clampScroll()
+				}
+			case "k", "up":
+				if m.selected > 0 {
+					m.selected--
+					m.clampScroll()
+				}
+			case "g":
+				m.selected = 0
+				m.clampScroll()
+			case "G":
+				m.selected = len(m.files) - 1
+				m.clampScroll()
+			case "enter":
+				if len(m.files) > 0 {
+					m.state = readDetail
+				}
+			case "q", "esc":
+				return m, tea.Quit
 			}
-		case "k", "up":
-			if m.selected > 0 {
-				m.selected--
+		case readDetail:
+			switch msg.String() {
+			case "q", "esc":
+				m.state = readList
+			case "j", "down":
+				m.scrollTop++
+			case "k", "up":
+				if m.scrollTop > 0 {
+					m.scrollTop--
+				}
 			}
-		case "g":
-			m.selected = 0
-		case "G":
-			m.selected = len(m.files) - 1
-		case "q", "esc":
-			return m, tea.Quit
 		}
 	}
 	return m, nil
+}
+
+func (m *ReadModel) clampScroll() {
+	visible := m.viewHeight - 4
+	if visible < 1 {
+		visible = 10
+	}
+	if m.selected < m.scrollTop {
+		m.scrollTop = m.selected
+	}
+	if m.selected >= m.scrollTop+visible {
+		m.scrollTop = m.selected - visible + 1
+	}
 }
 
 func (m ReadModel) View() string {
@@ -75,22 +120,40 @@ func (m ReadModel) View() string {
 		return b.String()
 	}
 
-	for i, f := range m.files {
-		if i == m.selected {
-			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s", f.Name)))
-		} else {
-			b.WriteString(fmt.Sprintf("  %s\n", listItemStyle.Render(f.Name)))
+	switch m.state {
+	case readList:
+		visible := m.viewHeight - 4
+		if visible < 1 {
+			visible = 10
 		}
-	}
+		end := m.scrollTop + visible
+		if end > len(m.files) {
+			end = len(m.files)
+		}
 
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  j/k navigate  ·  q quit"))
-
-	if len(m.files) > 0 {
-		b.WriteString("\n\n")
-		b.WriteString(subtitleStyle.Render(m.files[m.selected].Name))
+		for i := m.scrollTop; i < end; i++ {
+			if i == m.selected {
+				b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s", m.files[i].Name)))
+				b.WriteString("\n")
+			} else {
+				b.WriteString(fmt.Sprintf("  %s\n", listItemStyle.Render(m.files[i].Name)))
+			}
+		}
 		b.WriteString("\n")
-		b.WriteString(render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4))
+		if len(m.files) > visible {
+			b.WriteString(helpStyle.Render(fmt.Sprintf("  %d files  ·  j/k navigate  ·  enter read  ·  q quit", len(m.files))))
+		} else {
+			b.WriteString(helpStyle.Render("  j/k navigate  ·  enter read  ·  q quit"))
+		}
+
+	case readDetail:
+		if m.selected < len(m.files) {
+			b.WriteString(subtitleStyle.Render(m.files[m.selected].Name))
+			b.WriteString("\n")
+			b.WriteString(render.RenderMarkdown(m.files[m.selected].Content, m.viewWidth-4))
+			b.WriteString("\n\n")
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  esc back"))
+		}
 	}
 
 	return b.String()

@@ -20,6 +20,7 @@ const (
 	notesEdit
 	notesDeleteConfirm
 	notesNew
+	notesSearching
 )
 
 type NotesModel struct {
@@ -60,14 +61,21 @@ func NewNotesModel(prog *progress.Progress, subject string) NotesModel {
 }
 
 func (m NotesModel) Init() tea.Cmd {
-	return nil
+	return func() tea.Msg {
+		return notesInitMsg{}
+	}
 }
+
+type notesInitMsg struct{}
 
 func (m NotesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.viewWidth = msg.Width
 		m.viewHeight = msg.Height
+	case notesInitMsg:
+		m.refreshNotes()
+		return m, nil
 	}
 
 	switch m.state {
@@ -81,6 +89,8 @@ func (m NotesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateDeleteConfirm(msg)
 	case notesNew:
 		return m.updateNew(msg)
+	case notesSearching:
+		return m.updateSearch(msg)
 	}
 	return m, nil
 }
@@ -92,15 +102,19 @@ func (m NotesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "j", "down":
 			if m.selected < len(m.notes)-1 {
 				m.selected++
+				m.clampScroll()
 			}
 		case "k", "up":
 			if m.selected > 0 {
 				m.selected--
+				m.clampScroll()
 			}
 		case "g":
 			m.selected = 0
+			m.clampScroll()
 		case "G":
 			m.selected = len(m.notes) - 1
+			m.clampScroll()
 		case "enter":
 			if len(m.notes) > 0 {
 				m.state = notesDetail
@@ -117,11 +131,31 @@ func (m NotesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "/":
-			m.state = notesList
+			m.state = notesSearching
+			m.searchInput.SetValue("")
 			return m, tea.Batch(m.searchInput.Focus(), nil)
+		case "f":
+			switch m.filter {
+			case "":
+				m.filter = "concept"
+			case "concept":
+				m.filter = "card"
+			case "card":
+				m.filter = "quiz"
+			case "quiz":
+				m.filter = "note"
+			case "note":
+				m.filter = ""
+			}
+			m.selected = 0
+			m.scrollTop = 0
+			m.refreshNotes()
+			return m, nil
 		case "esc":
 			if m.filter != "" {
 				m.filter = ""
+				m.selected = 0
+				m.scrollTop = 0
 				m.refreshNotes()
 				return m, nil
 			}
@@ -131,6 +165,31 @@ func (m NotesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m NotesModel) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			m.state = notesList
+			m.selected = 0
+			m.scrollTop = 0
+			m.refreshNotes()
+			return m, nil
+		case "esc":
+			m.searchInput.SetValue("")
+			m.state = notesList
+			m.selected = 0
+			m.scrollTop = 0
+			m.refreshNotes()
+			return m, nil
+		}
+	}
+	var cmd tea.Cmd
+	m.searchInput, cmd = m.searchInput.Update(msg)
+	m.refreshNotes()
+	return m, cmd
 }
 
 func (m NotesModel) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -181,6 +240,7 @@ func (m NotesModel) updateDeleteConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.selected >= len(m.notes) {
 					m.selected = len(m.notes) - 1
 				}
+				m.clampScroll()
 			}
 			m.state = notesList
 		case "n", "N", "esc":
@@ -257,9 +317,20 @@ func (m *NotesModel) refreshNotes() {
 	})
 }
 
-func (m NotesModel) View() string {
-	m.refreshNotes()
+func (m *NotesModel) clampScroll() {
+	visible := m.viewHeight - 6
+	if visible < 1 {
+		visible = 10
+	}
+	if m.selected < m.scrollTop {
+		m.scrollTop = m.selected
+	}
+	if m.selected >= m.scrollTop+visible {
+		m.scrollTop = m.selected - visible + 1
+	}
+}
 
+func (m NotesModel) View() string {
 	if m.viewWidth == 0 {
 		m.viewWidth = 80
 	}
@@ -283,7 +354,17 @@ func (m NotesModel) View() string {
 				Render("No notes found.\n\n  Press 'n' to create one.")
 			b.WriteString(empty)
 		} else {
-			for i, note := range m.notes {
+			visible := m.viewHeight - 6
+			if visible < 1 {
+				visible = 10
+			}
+			end := m.scrollTop + visible
+			if end > len(m.notes) {
+				end = len(m.notes)
+			}
+
+			for i := m.scrollTop; i < end; i++ {
+				note := m.notes[i]
 				linkLabel := "unlinked"
 				if note.LinkedTo != nil {
 					switch note.LinkedTo.Type {
@@ -302,13 +383,51 @@ func (m NotesModel) View() string {
 
 				if i == m.selected {
 					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", preview, linkLabel)))
+					b.WriteString("\n")
 				} else {
 					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(preview), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
 				}
 			}
 		}
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  j/k navigate  ·  enter view  ·  n new  ·  e edit  ·  x delete  ·  / search  ·  q quit"))
+		if len(m.notes) > m.viewHeight-6 {
+			b.WriteString(helpStyle.Render(fmt.Sprintf("  %d notes  ·  j/k navigate  ·  enter view  ·  n new  ·  e edit  ·  x delete  ·  / search  ·  f filter  ·  q quit", len(m.notes))))
+		} else {
+			b.WriteString(helpStyle.Render("  j/k navigate  ·  enter view  ·  n new  ·  e edit  ·  x delete  ·  / search  ·  f filter  ·  q quit"))
+		}
+
+	case notesSearching:
+		b.WriteString("  ")
+		b.WriteString(m.searchInput.View())
+		b.WriteString("\n\n")
+		if len(m.notes) > 0 {
+			visible := m.viewHeight - 6
+			if visible < 1 {
+				visible = 10
+			}
+			end := m.scrollTop + visible
+			if end > len(m.notes) {
+				end = len(m.notes)
+			}
+			for i := m.scrollTop; i < end; i++ {
+				note := m.notes[i]
+				linkLabel := "unlinked"
+				if note.LinkedTo != nil {
+					linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
+				}
+				preview := truncate(note.Content, 60)
+				if i == m.selected {
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", preview, linkLabel)))
+					b.WriteString("\n")
+				} else {
+					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(preview), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
+				}
+			}
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render("  No matching notes"))
+		}
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  enter confirm  ·  esc cancel"))
 
 	case notesDetail:
 		if len(m.notes) > 0 {
@@ -341,4 +460,13 @@ func (m NotesModel) View() string {
 	}
 
 	return b.String()
+}
+
+func truncate(s string, max int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	runes := []rune(s)
+	if len(runes) > max {
+		return string(runes[:max]) + "..."
+	}
+	return s
 }

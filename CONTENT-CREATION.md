@@ -29,6 +29,87 @@ This document defines the exact file formats, conventions, and examples needed t
 
 ---
 
+## YAML Frontmatter Rules
+
+Every concept, flashcard, and quiz file starts with YAML frontmatter delimited by `---`.
+
+### CRITICAL: File Structure
+
+```yaml
+---
+format_version: 1
+type: concept_set
+set: Topic Name
+concepts:
+  - id: c-example
+    name: Example Concept
+    parent_id: null
+---
+<markdown body goes here>
+```
+
+**Rules:**
+1. File MUST start with `---` on the very first line
+2. YAML frontmatter comes first
+3. Closing `---` is required after the YAML
+4. Markdown body comes after the closing `---`
+
+### CRITICAL: YAML Quoting Rules
+
+**Quote values containing colons:**
+```yaml
+# WRONG - breaks YAML
+front: What is the boundary: the edge?
+back: Anterolaterally: muscles. Posteriorly: vertebrae.
+
+# CORRECT - quote the value
+front: "What is the boundary: the edge?"
+back: "Anterolaterally: muscles. Posteriorly: vertebrae."
+```
+
+**Quote values with embedded quotes:**
+```yaml
+# WRONG - breaks YAML
+back: "C3, 4, 5 keep the diaphragm alive" — the phrenic nerve...
+
+# CORRECT - quote the entire value
+back: "\"C3, 4, 5 keep the diaphragm alive\" — the phrenic nerve..."
+
+# BETTER - use single quotes inside
+back: "'C3, 4, 5 keep the diaphragm alive' — the phrenic nerve..."
+```
+
+**Quote values with special YAML characters:**
+```yaml
+# These characters need quoting: : { } [ ] , & * # | > ! % @ `
+question: "What is 2+2?"
+back: "ATP → ADP + Pi"
+front: "What does PFK-1 stand for?"
+```
+
+**When in doubt, quote it:**
+```yaml
+# Safe format - always works
+front: "Your question here"
+back: "Your answer here"
+explanation: "Your explanation here"
+```
+
+### YAML Quick Reference
+
+| Format | Example | Notes |
+|--------|---------|-------|
+| Simple string | `name: Glycolysis` | No special chars |
+| Quoted string | `front: "What is 2+2?"` | Contains `:` or other specials |
+| Multi-line | `source: \|` | Use `>` for folded, `\|` for literal |
+| Null | `parent_id: null` | Or omit field entirely |
+| Boolean | `answer: true` | Lowercase `true`/`false` |
+| Integer | `answer: 3` | No quotes |
+| Array | `tags: [a, b, c]` | Or use `- item` format |
+| Nested array | `options:` then `- item` | One per line |
+
+---
+
 ## Concept Files
 
 Location: `concepts/<topic>.md`
@@ -179,27 +260,27 @@ source: BCH 208 - Glycolysis Lecture
 cards:
   - id: bch-001
     concept_id: c-pfk1
-    front: What is the rate-limiting enzyme of glycolysis?
-    back: Phosphofructokinase-1 (PFK-1)
+    front: "What is the rate-limiting enzyme of glycolysis?"
+    back: "Phosphofructokinase-1 (PFK-1)"
     tags: [glycolysis, enzymes, regulation]
   - id: bch-002
     concept_id: c-glycolysis
-    front: What is the net ATP yield of glycolysis?
-    back: 2 ATP per glucose molecule
+    front: "What is the net ATP yield of glycolysis?"
+    back: "2 ATP per glucose molecule"
     tags: [glycolysis, energy]
   - id: bch-003
     concept_id: c-hexokinase
-    front: What does hexokinase do?
-    back: Phosphorylates glucose to glucose-6-phosphate using ATP
+    front: "What does hexokinase do?"
+    back: "Phosphorylates glucose to glucose-6-phosphate using ATP"
     tags: [glycolysis, enzymes]
   - id: bch-004
-    front: What are the two phases of glycolysis?
-    back: Energy investment phase (steps 1-5) and energy payoff phase (steps 6-10)
+    front: "What are the two phases of glycolysis?"
+    back: "Energy investment phase (steps 1-5) and energy payoff phase (steps 6-10)"
     tags: [glycolysis]
   - id: bch-005
     concept_id: c-pyruvate-kinase
-    front: What is substrate-level phosphorylation?
-    back: Direct transfer of a phosphate group from a substrate to ADP to form ATP, without using the electron transport chain
+    front: "What is substrate-level phosphorylation?"
+    back: "Direct transfer of a phosphate group from a substrate to ADP to form ATP, without using the electron transport chain"
     tags: [glycolysis, energy, mechanisms]
 ---
 
@@ -221,6 +302,17 @@ Net = 4 - 2 = 2 ATP.
 | `front` | Yes | The question/prompt |
 | `back` | Yes | The answer |
 | `tags` | No | Array of tags for organization |
+
+**IMPORTANT:** Always quote `front` and `back` values to avoid YAML parsing errors:
+```yaml
+# CORRECT
+front: "What is the boundary: the edge?"
+back: "Anterolaterally: muscles. Posteriorly: vertebrae."
+
+# WRONG - will break YAML
+front: What is the boundary: the edge?
+back: Anterolaterally: muscles. Posteriorly: vertebrae.
+```
 
 ### Body Sections
 
@@ -249,63 +341,63 @@ questions:
   - id: bch-q001
     concept_id: c-pfk1
     type: mcq
-    question: Which enzyme catalyzes the committed step of glycolysis?
+    question: "Which enzyme catalyzes the committed step of glycolysis?"
     options:
-      - Hexokinase
-      - Phosphofructokinase-1
-      - Pyruvate kinase
-      - Aldolase
+      - "Hexokinase"
+      - "Phosphofructokinase-1"
+      - "Pyruvate kinase"
+      - "Aldolase"
     answer: 1
-    explanation: PFK-1 catalyzes the committed step — the first irreversible reaction unique to glycolysis. It is the key regulatory point.
+    explanation: "PFK-1 catalyzes the committed step — the first irreversible reaction unique to glycolysis. It is the key regulatory point."
 
   - id: bch-q002
     concept_id: c-glycolysis
     type: mcq
-    question: What is the net ATP yield of glycolysis per glucose molecule?
+    question: "What is the net ATP yield of glycolysis per glucose molecule?"
     options:
-      - 1 ATP
-      - 2 ATP
-      - 4 ATP
-      - 6 ATP
+      - "1 ATP"
+      - "2 ATP"
+      - "4 ATP"
+      - "6 ATP"
     answer: 2
-    explanation: Glycolysis produces 4 ATP total but consumes 2 ATP in the investment phase, yielding a net of 2 ATP.
+    explanation: "Glycolysis produces 4 ATP total but consumes 2 ATP in the investment phase, yielding a net of 2 ATP."
 
   - id: bch-q003
     type: true_false
-    question: Glycolysis occurs in the mitochondria
+    question: "Glycolysis occurs in the mitochondria"
     answer: false
-    explanation: Glycolysis occurs in the cytoplasm (cytosol), not the mitochondria. The citric acid cycle and oxidative phosphorylation occur in the mitochondria.
+    explanation: "Glycolysis occurs in the cytoplasm (cytosol), not the mitochondria. The citric acid cycle and oxidative phosphorylation occur in the mitochondria."
 
   - id: bch-q004
     type: true_false
-    question: PFK-1 is inhibited by ATP and citrate
+    question: "PFK-1 is inhibited by ATP and citrate"
     answer: true
-    explanation: ATP and citrate are allosteric inhibitors of PFK-1, signaling that the cell has sufficient energy.
+    explanation: "ATP and citrate are allosteric inhibitors of PFK-1, signaling that the cell has sufficient energy."
 
   - id: bch-q005
     concept_id: c-hexokinase
     type: fill_blank
     question: "Glucose is phosphorylated to glucose-___-phosphate by hexokinase"
     answer: "6"
-    explanation: Hexokinase phosphorylates glucose at the 6th carbon, producing glucose-6-phosphate.
+    explanation: "Hexokinase phosphorylates glucose at the 6th carbon, producing glucose-6-phosphate."
 
   - id: bch-q006
     type: fill_blank
     question: "The committed step of glycolysis is catalyzed by phospho___okinase-1"
     answer: "fructo"
-    explanation: Phospho-fructo-kinase-1 (PFK-1) catalyzes the committed step.
+    explanation: "Phospho-fructo-kinase-1 (PFK-1) catalyzes the committed step."
 
   - id: bch-q007
     concept_id: c-pyruvate-kinase
     type: mcq
-    question: Which of the following activates pyruvate kinase?
+    question: "Which of the following activates pyruvate kinase?"
     options:
-      - ATP
-      - Alanine
-      - Fructose-1,6-bisphosphate
-      - Citrate
+      - "ATP"
+      - "Alanine"
+      - "Fructose-1,6-bisphosphate"
+      - "Citrate"
     answer: 3
-    explanation: Fructose-1,6-bisphosphate is a feedforward activator of pyruvate kinase. ATP, alanine, and citrate are inhibitors.
+    explanation: "Fructose-1,6-bisphosphate is a feedforward activator of pyruvate kinase. ATP, alanine, and citrate are inhibitors."
 ---
 ```
 
@@ -320,6 +412,23 @@ questions:
 | `options` | mcq only | Array of answer choices (1-indexed for answer) |
 | `answer` | Yes | Correct answer (see format below) |
 | `explanation` | No | Shown after answering |
+
+**IMPORTANT:** Always quote `question`, `options`, and `explanation` values:
+```yaml
+# CORRECT
+question: "What is the boundary: the edge?"
+options:
+  - "Option A: with colon"
+  - "Option B: also with colon"
+explanation: "Explanation: this is why."
+
+# WRONG - will break YAML
+question: What is the boundary: the edge?
+options:
+  - Option A: with colon
+  - Option B: also with colon
+explanation: Explanation: this is why.
+```
 
 ### Answer Formats
 
@@ -516,12 +625,12 @@ set: Glycolysis Cards
 cards:
   - id: bch-001
     concept_id: c-pfk1
-    front: Rate-limiting enzyme of glycolysis?
-    back: PFK-1
+    front: "Rate-limiting enzyme of glycolysis?"
+    back: "PFK-1"
   - id: bch-002
     concept_id: c-glycolysis
-    front: Net ATP yield of glycolysis?
-    back: 2 ATP
+    front: "Net ATP yield of glycolysis?"
+    back: "2 ATP"
 ---
 ```
 
@@ -536,15 +645,18 @@ questions:
   - id: bch-q001
     concept_id: c-pfk1
     type: mcq
-    question: Which enzyme is rate-limiting?
-    options: [Hexokinase, PFK-1, Pyruvate kinase]
+    question: "Which enzyme is rate-limiting?"
+    options:
+      - "Hexokinase"
+      - "PFK-1"
+      - "Pyruvate kinase"
     answer: 2
-    explanation: PFK-1 is the rate-limiting enzyme.
+    explanation: "PFK-1 is the rate-limiting enzyme."
   - id: bch-q002
     type: true_false
-    question: Glycolysis yields 4 ATP net
+    question: "Glycolysis yields 4 ATP net"
     answer: false
-    explanation: Net yield is 2 ATP (4 produced - 2 invested).
+    explanation: "Net yield is 2 ATP (4 produced - 2 invested)."
 ---
 ```
 
@@ -554,28 +666,241 @@ questions:
 
 When creating content for ken, verify:
 
-- [ ] **File format**: YAML frontmatter + markdown body
-- [ ] **Type field**: `concept_set`, `flashcard_set`, or `quiz_set`
-- [ ] **Format version**: Always `1`
-- [ ] **IDs unique per subject**: No duplicate IDs across concept/flashcard/quiz files
-- [ ] **Concept IDs**: Prefixed with `c-`, referenced correctly in `concept_id` fields
-- [ ] **Card IDs**: Prefixed with subject code (e.g., `bch-`), referenced in `## Notes:` sections
-- [ ] **Quiz IDs**: Prefixed with subject code + `q` (e.g., `bch-q001`)
-- [ ] **Quiz answer format**: mcq = 1-indexed integer, true_false = boolean, fill_blank = string
-- [ ] **Body sections**: `## <id>` for concepts, `## Notes: <id>` for cards
-- [ ] **Summary sections**: `## <id>:summary` for concept summaries
-- [ ] **No empty required fields**: Every card needs `front` and `back`, every question needs `question` and `answer`
-- [ ] **Mermaid syntax valid**: Test diagrams before including
-- [ ] **Markdown clean**: No broken formatting, no unclosed tags
+### YAML Structure
+- [ ] File starts with `---` on line 1
+- [ ] File ends with `---` after YAML frontmatter (before markdown body)
+- [ ] `format_version: 1` present
+- [ ] `type` field present: `concept_set`, `flashcard_set`, or `quiz_set`
+
+### YAML Values
+- [ ] All string values containing `:` are quoted: `front: "What is X: Y?"`
+- [ ] All string values containing embedded quotes are properly escaped
+- [ ] All string values containing special YAML chars (`: { } [ ] , & * # | > ! % @ \``) are quoted
+- [ ] When in doubt, quote it: `front: "your text here"`
+- [ ] No markdown bold syntax in YAML keys (use `front:` not `**front:**`)
+
+### IDs
+- [ ] IDs unique per subject across ALL files
+- [ ] Concept IDs prefixed with `c-`
+- [ ] Card IDs prefixed with subject code (e.g., `bch-`)
+- [ ] Quiz IDs prefixed with subject code + `q` (e.g., `bch-q001`)
+- [ ] `concept_id` fields reference valid concept IDs
+
+### Fields
+- [ ] Every card has `front` and `back`
+- [ ] Every question has `question` and `answer`
+- [ ] mcq answers are 1-indexed integers (not strings)
+- [ ] true_false answers are booleans (`true`/`false`, not strings)
+- [ ] fill_blank answers are strings
+
+### Body Sections
+- [ ] Concept descriptions: `## <concept-id>`
+- [ ] Concept summaries: `## <concept-id>:summary`
+- [ ] Card notes: `## Notes: <card-id>`
 
 ---
 
 ## Common Mistakes
 
-1. **Duplicate IDs**: `bch-001` in two different files → ken crashes on load
-2. **Wrong answer format**: mcq answer `1` (correct) vs `"1"` (wrong — must be integer)
-3. **Missing type field**: Every file needs `type: concept_set`, `type: flashcard_set`, or `type: quiz_set`
-4. **Wrong parent_id**: Referencing a concept ID that doesn't exist → warn + treat as root
-5. **Empty concept body**: `## c-something` with no text → empty description, still works but not useful
-6. **Mermaid syntax errors**: Invalid mermaid → diagram rendering fails silently
-7. **YAML quoting**: Strings with special characters need quotes: `question: "What is 2+2?"`
+### 1. Missing Closing `---`
+```yaml
+# WRONG - file ends after concepts list
+---
+format_version: 1
+type: concept_set
+set: Topic
+concepts:
+  - id: c-1
+    name: Example
+
+definitions:
+  - concept_id: c-1
+    definition: "This breaks YAML parsing"
+```
+
+```yaml
+# CORRECT - add closing ---
+---
+format_version: 1
+type: concept_set
+set: Topic
+concepts:
+  - id: c-1
+    name: Example
+---
+definitions:
+  - concept_id: c-1
+    definition: "This is in the body, not YAML"
+```
+
+### 2. Unquoted Colons
+```yaml
+# WRONG
+back: Anterolaterally: muscles. Posteriorly: vertebrae.
+
+# CORRECT
+back: "Anterolaterally: muscles. Posteriorly: vertebrae."
+```
+
+### 3. Embedded Quotes
+```yaml
+# WRONG
+back: "C3, 4, 5 keep the diaphragm alive" — the phrenic nerve...
+
+# CORRECT
+back: "'C3, 4, 5 keep the diaphragm alive' — the phrenic nerve..."
+```
+
+### 4. Wrong Format
+```yaml
+# WRONG - not a valid ken format
+---
+id: anp-001
+title: "Pelvis Overview"
+subtopics:
+  - id: anp-002
+    title: "Bony Pelvis"
+
+# CORRECT - use the standard format
+---
+format_version: 1
+type: concept_set
+set: Pelvis
+concepts:
+  - id: anp-001
+    name: "Pelvis Overview"
+  - id: anp-002
+    name: "Bony Pelvis"
+    parent_id: anp-001
+```
+
+### 5. Duplicate IDs
+```yaml
+# WRONG - same ID in two files
+# flashcards/a.md
+cards:
+  - id: bch-001
+    front: "Question 1"
+
+# flashcards/b.md
+cards:
+  - id: bch-001    # DUPLICATE!
+    front: "Different question"
+
+# CORRECT - use unique IDs
+# flashcards/a.md
+cards:
+  - id: bch-001
+    front: "Question 1"
+
+# flashcards/b.md
+cards:
+  - id: bch-002    # Unique
+    front: "Different question"
+```
+
+---
+
+## Troubleshooting
+
+### "failed to parse YAML frontmatter"
+- Check for missing closing `---`
+- Check for unquoted values with colons
+- Check for embedded quotes not properly escaped
+
+### "expected type 'concept_set', got ''"
+- Missing `type` field in frontmatter
+- Or file uses wrong format (see Common Mistakes #4)
+
+### "duplicate concept ID"
+- Same ID used in multiple files
+- Must be unique across ALL files in the subject
+
+### "missing or invalid 'cards' field"
+- Missing `cards:` key in flashcard file
+- Or `cards:` is not an array
+
+### Diagram rendering fails
+- Check mermaid syntax is valid
+- Test at https://mermaid.live/ before including
+- Use `|` for multi-line source strings
+
+---
+
+## Quick Copy-Paste Templates
+
+### Concept File
+```markdown
+---
+format_version: 1
+type: concept_set
+set: YOUR TOPIC
+concepts:
+  - id: c-YOUR-ID
+    name: "Concept Name"
+    parent_id: null
+  - id: c-CHILD-ID
+    name: "Child Concept"
+    parent_id: c-YOUR-ID
+---
+
+## c-YOUR-ID
+Description of the concept.
+
+## c-YOUR-ID:summary
+Summary of the concept.
+
+## c-CHILD-ID
+Description of child concept.
+
+## c-CHILD-ID:summary
+Summary of child concept.
+```
+
+### Flashcard File
+```markdown
+---
+format_version: 1
+type: flashcard_set
+set: YOUR TOPIC Cards
+cards:
+  - id: YOUR-001
+    concept_id: c-YOUR-ID
+    front: "Your question here?"
+    back: "Your answer here"
+  - id: YOUR-002
+    front: "Another question?"
+    back: "Another answer"
+---
+```
+
+### Quiz File
+```markdown
+---
+format_version: 1
+type: quiz_set
+set: YOUR TOPIC Quiz
+questions:
+  - id: YOUR-Q001
+    concept_id: c-YOUR-ID
+    type: mcq
+    question: "Your question?"
+    options:
+      - "Option A"
+      - "Option B"
+      - "Option C"
+      - "Option D"
+    answer: 1
+    explanation: "Why this is correct."
+  - id: YOUR-Q002
+    type: true_false
+    question: "True or false statement"
+    answer: true
+    explanation: "Explanation."
+  - id: YOUR-Q003
+    type: fill_blank
+    question: "Fill in the blank: ___"
+    answer: "answer"
+    explanation: "Explanation."
+---
+```

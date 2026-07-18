@@ -61,11 +61,11 @@ var (
 				Padding(0, 1).
 				MarginRight(1)
 
-	gradeUnknownStyle    = gradeButtonStyle.Foreground(colorDanger)
-	gradeKnownLittleStyle = gradeButtonStyle.Foreground(colorWarning)
-	gradeKnownFairlyStyle = gradeButtonStyle.Foreground(lipgloss.Color("220"))
-	gradeKnownWellStyle  = gradeButtonStyle.Foreground(colorSuccess)
-	gradeMasteredStyle   = gradeButtonStyle.Foreground(colorAccent)
+	gradeUnknownStyle     = gradeButtonStyle.Foreground(colorDanger)
+	gradeKnownLittleStyle = gradeButtonStyle.Foreground(lipgloss.Color("214"))
+	gradeKnownFairlyStyle = gradeButtonStyle.Foreground(lipgloss.Color("178"))
+	gradeKnownWellStyle   = gradeButtonStyle.Foreground(colorSuccess)
+	gradeMasteredStyle    = gradeButtonStyle.Foreground(lipgloss.Color("45"))
 
 	finishedStyle = lipgloss.NewStyle().
 			Bold(true).

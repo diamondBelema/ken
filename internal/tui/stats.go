@@ -8,9 +8,8 @@ import (
 )
 
 type StatsModel struct {
-	err         error
-	viewWidth   int
-	viewHeight  int
+	viewWidth  int
+	viewHeight int
 }
 
 func NewStatsModel() StatsModel {
@@ -49,7 +48,7 @@ func (m StatsModel) View() string {
 	empty := lipgloss.NewStyle().
 		Foreground(colorMuted).
 		Padding(4, 2).
-		Render("No data yet.\n\n  Complete some study sessions to see stats.")
+		Render("Stats coming soon.\n\n  Use 'ken progress' to see per-concept mastery.")
 	b.WriteString(empty)
 	b.WriteString("\n\n")
 	b.WriteString(helpStyle.Render("  q quit"))

@@ -334,19 +334,13 @@ func (m FlashcardModel) renderProgressBar(current, total int) string {
 		filled = (current * barWidth) / total
 	}
 
-	bar := ""
-	for i := 0; i < barWidth; i++ {
-		if i < filled {
-			bar += "━"
-		} else {
-			bar += "─"
-		}
-	}
+	barFilled := strings.Repeat("━", filled)
+	barEmpty := strings.Repeat("─", barWidth-filled)
 
 	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	result := filledStyle.Render(bar[:filled]) + emptyStyle.Render(bar[filled:])
+	result := filledStyle.Render(barFilled) + emptyStyle.Render(barEmpty)
 	result += fmt.Sprintf(" %d/%d", current, total)
 
 	return result

@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/discovery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type DashboardModel struct {
@@ -132,11 +132,14 @@ func (m DashboardModel) View() string {
 		concepts := m.conceptData[s.Name]
 		conceptCount := len(concepts)
 		mastered := 0
-		noteCount := len(prog.Notes)
+		noteCount := 0
 
-		for _, cs := range prog.Concepts {
-			if cs.Confidence >= threshold {
-				mastered++
+		if prog != nil {
+			noteCount = len(prog.Notes)
+			for _, cs := range prog.Concepts {
+				if cs.Confidence >= threshold {
+					mastered++
+				}
 			}
 		}
 
@@ -155,7 +158,7 @@ func (m DashboardModel) View() string {
 		totalConcepts, totalMastered, len(m.subjects))
 	b.WriteString(statusBarStyle.Render(statsLine))
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  q quit"))
+	b.WriteString(helpStyle.Render("  flashcards <subject>  ·  quiz <subject>  ·  notes <subject>  ·  ken --help"))
 
 	return b.String()
 }
@@ -184,13 +187,9 @@ func (m DashboardModel) renderConfidenceBar(prog *progress.Progress, total int) 
 	}
 
 	mastered := 0
-	reviewed := 0
 	for _, cs := range prog.Concepts {
-		if cs.LastReviewedAt != nil {
-			reviewed++
-			if cs.Confidence >= 0.7 {
-				mastered++
-			}
+		if cs.LastReviewedAt != nil && cs.Confidence >= 0.7 {
+			mastered++
 		}
 	}
 
@@ -200,19 +199,13 @@ func (m DashboardModel) renderConfidenceBar(prog *progress.Progress, total int) 
 		masteredWidth = (mastered * barWidth) / total
 	}
 
-	bar := ""
-	for i := 0; i < barWidth; i++ {
-		if i < masteredWidth {
-			bar += "█"
-		} else {
-			bar += "░"
-		}
-	}
+	filled := strings.Repeat("█", masteredWidth)
+	empty := strings.Repeat("░", barWidth-masteredWidth)
 
 	masteredStyle := lipgloss.NewStyle().Foreground(colorSuccess)
 	remainingStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	result := masteredStyle.Render(bar[:masteredWidth]) + remainingStyle.Render(bar[masteredWidth:])
+	result := masteredStyle.Render(filled) + remainingStyle.Render(empty)
 
 	if total > 0 {
 		pct := (mastered * 100) / total

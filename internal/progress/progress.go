@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/diamondBelema/ken/internal/parser"
@@ -57,6 +59,8 @@ type Progress struct {
 	Quizzes       map[string]QuizState    `json:"quizzes"`
 	Notes         map[string]Note         `json:"notes,omitempty"`
 	Summaries     map[string]Summary      `json:"summaries,omitempty"`
+	NextNoteID    int                     `json:"next_note_id"`
+	NextSummaryID int                     `json:"next_summary_id"`
 }
 
 type ConceptState struct {
@@ -86,6 +90,8 @@ func Load(path string) (*Progress, error) {
 				Quizzes:       make(map[string]QuizState),
 				Notes:         make(map[string]Note),
 				Summaries:     make(map[string]Summary),
+				NextNoteID:    1,
+				NextSummaryID: 1,
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to read progress.json: %w", err)
@@ -112,7 +118,27 @@ func Load(path string) (*Progress, error) {
 		p.Summaries = make(map[string]Summary)
 	}
 
+	if p.NextNoteID == 0 {
+		p.NextNoteID = computeMaxID(p.Notes, "n-") + 1
+	}
+	if p.NextSummaryID == 0 {
+		p.NextSummaryID = computeMaxID(p.Summaries, "s-") + 1
+	}
+
 	return &p, nil
+}
+
+func computeMaxID[V any](m map[string]V, prefix string) int {
+	maxNum := 0
+	for id := range m {
+		if strings.HasPrefix(id, prefix) {
+			numStr := strings.TrimPrefix(id, prefix)
+			if n, err := strconv.Atoi(numStr); err == nil && n > maxNum {
+				maxNum = n
+			}
+		}
+	}
+	return maxNum
 }
 
 func Save(path string, p *Progress) error {
@@ -159,7 +185,8 @@ func ConceptIDs(p *Progress) []string {
 }
 
 func (p *Progress) AddNote(content string, linkedTo *EntityRef) string {
-	id := fmt.Sprintf("n-%d", len(p.Notes)+1)
+	id := fmt.Sprintf("n-%d", p.NextNoteID)
+	p.NextNoteID++
 	now := time.Now().Unix()
 	p.Notes[id] = Note{
 		Content:   content,
@@ -190,7 +217,8 @@ func (p *Progress) DeleteNote(id string) error {
 }
 
 func (p *Progress) AddSummary(title, content string, linkedTo *EntityRef) string {
-	id := fmt.Sprintf("s-%d", len(p.Summaries)+1)
+	id := fmt.Sprintf("s-%d", p.NextSummaryID)
+	p.NextSummaryID++
 	now := time.Now().Unix()
 	p.Summaries[id] = Summary{
 		Title:     title,

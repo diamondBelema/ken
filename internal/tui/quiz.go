@@ -91,6 +91,13 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m = m.checkFillBlank()
 					return m, nil
 				}
+				if msg.String() == "backspace" {
+					runes := []rune(m.message)
+					if len(runes) > 0 {
+						m.message = string(runes[:len(runes)-1])
+					}
+					return m, nil
+				}
 				if len(msg.String()) == 1 {
 					m.message += msg.String()
 					return m, nil
@@ -303,7 +310,7 @@ func (m QuizModel) View() string {
 				Foreground(colorTextBright).
 				Render(m.message + "█")
 			b.WriteString(fmt.Sprintf("  Your answer: %s\n", input))
-			b.WriteString(helpStyle.Render("  enter submit"))
+			b.WriteString(helpStyle.Render("  enter submit  ·  backspace delete"))
 		}
 
 		b.WriteString("\n")
@@ -390,19 +397,13 @@ func (m QuizModel) renderProgressBar(current, total int) string {
 		filled = (current * barWidth) / total
 	}
 
-	bar := ""
-	for i := 0; i < barWidth; i++ {
-		if i < filled {
-			bar += "━"
-		} else {
-			bar += "─"
-		}
-	}
+	barFilled := strings.Repeat("━", filled)
+	barEmpty := strings.Repeat("─", barWidth-filled)
 
 	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	result := filledStyle.Render(bar[:filled]) + emptyStyle.Render(bar[filled:])
+	result := filledStyle.Render(barFilled) + emptyStyle.Render(barEmpty)
 	result += fmt.Sprintf(" %d/%d", current, total)
 
 	return result

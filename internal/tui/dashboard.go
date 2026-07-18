@@ -378,43 +378,54 @@ func (m DashboardModel) View() string {
 
 	var b strings.Builder
 
-	b.WriteString(m.renderHeader())
-	b.WriteString("\n")
+	// Build content into a buffer to measure height
+	var content strings.Builder
+	content.WriteString(m.renderHeader())
+	content.WriteString("\n")
 
 	if m.state == dashFiltering || m.filterText != "" {
 		filterLabel := dashFilterStyle.Render(" / ")
 		filterLine := filterLabel + m.filterInput.View()
-		b.WriteString(centerBlock(filterLine, m.width))
-		b.WriteString("\n")
+		content.WriteString(centerBlock(filterLine, m.width))
+		content.WriteString("\n")
 	}
 
 	filtered := m.filteredSubjects()
 	if len(filtered) == 0 {
 		if m.filterText != "" {
-			b.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
-			b.WriteString("\n")
+			content.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
+			content.WriteString("\n")
 		} else {
-			b.WriteString(m.renderEmptyState())
+			content.WriteString(m.renderEmptyState())
 		}
 	} else {
-		b.WriteString(m.renderGrid(filtered))
+		content.WriteString(m.renderGrid(filtered))
 	}
 
 	if m.state == dashActionRow && len(filtered) > 0 {
-		b.WriteString(m.renderActionRow())
+		content.WriteString(m.renderActionRow())
 	}
 
-	b.WriteString("\n")
-	b.WriteString(centerBlock(m.renderHelpBar(), m.width))
+	content.WriteString("\n")
+	content.WriteString(centerBlock(m.renderHelpBar(), m.width))
 
+	// Vertically center: add top padding
+	contentLines := strings.Count(content.String(), "\n")
+	footerLines := 2
+	usedLines := contentLines + footerLines
+	emptyLines := m.height - usedLines
+	if emptyLines > 0 {
+		topPad := emptyLines / 2
+		for i := 0; i < topPad; i++ {
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString(content.String())
 	return b.String()
 }
 
 func (m DashboardModel) renderHeader() string {
-	cols := m.columnCount()
-	colWidth := (m.width - 2*(cols-1)) / cols
-	totalBarWidth := cols*colWidth + 2*(cols-1)
-
 	var b strings.Builder
 
 	title := dashHeaderStyle.Render("ken")
@@ -447,10 +458,20 @@ func (m DashboardModel) renderHeader() string {
 	}
 
 	if total > 0 {
-		barWidth := 20
-		if totalBarWidth > 80 {
-			barWidth = 30
+		// Scale bar to fit terminal width
+		// "Weak X NNN · Developing X NNN · Strong X NNN · N concepts" ≈ 80 chars of labels
+		availableForBars := m.width - 80
+		if availableForBars < 30 {
+			availableForBars = 30
 		}
+		barWidth := availableForBars / 3
+		if barWidth < 10 {
+			barWidth = 10
+		}
+		if barWidth > 40 {
+			barWidth = 40
+		}
+
 		weakPct := weak * barWidth / total
 		devPct := dev * barWidth / total
 		strongPct := barWidth - weakPct - devPct

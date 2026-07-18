@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/diamondBelema/ken/internal/parser"
+	"github.com/diamondBelema/ken/internal/progress"
 )
 
 type FlashcardSession struct {
@@ -15,7 +17,7 @@ type FlashcardSession struct {
 	Index   int
 }
 
-func LoadFlashcards(subjectDir, subject string) (*FlashcardSession, error) {
+func LoadFlashcards(subjectDir, subject string, prog *progress.Progress) (*FlashcardSession, error) {
 	flashcardsDir := filepath.Join(subjectDir, subject, "flashcards")
 	entries, err := os.ReadDir(flashcardsDir)
 	if err != nil {
@@ -54,11 +56,30 @@ func LoadFlashcards(subjectDir, subject string) (*FlashcardSession, error) {
 		return nil, fmt.Errorf("no flashcards found in %s", flashcardsDir)
 	}
 
+	if prog != nil {
+		sort.Slice(allCards, func(i, j int) bool {
+			ci := conceptConfidence(prog, allCards[i].ConceptID)
+			cj := conceptConfidence(prog, allCards[j].ConceptID)
+			return ci < cj
+		})
+	}
+
 	return &FlashcardSession{
 		Subject: subject,
 		Cards:   allCards,
 		Index:   0,
 	}, nil
+}
+
+func conceptConfidence(prog *progress.Progress, conceptID string) float64 {
+	if conceptID == "" {
+		return 1.0
+	}
+	cs, ok := prog.Concepts[conceptID]
+	if !ok {
+		return 0.5
+	}
+	return cs.Confidence
 }
 
 func (s *FlashcardSession) Current() parser.Flashcard {

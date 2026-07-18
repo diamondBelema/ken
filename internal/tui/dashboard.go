@@ -349,7 +349,8 @@ func (m DashboardModel) View() string {
 	// Filter line
 	if m.state == dashFiltering || m.filterText != "" {
 		filterLabel := dashFilterStyle.Render(" / ")
-		b.WriteString("  " + filterLabel + m.filterInput.View())
+		filterLine := filterLabel + m.filterInput.View()
+		b.WriteString(centerBlock(filterLine, m.width))
 		b.WriteString("\n")
 	}
 
@@ -369,7 +370,8 @@ func (m DashboardModel) View() string {
 			end = len(filtered)
 		}
 		for i := m.scrollTop; i < end; i++ {
-			b.WriteString(m.renderSubjectCard(filtered[i], i == m.selected))
+			card := m.renderSubjectCard(filtered[i], i == m.selected)
+			b.WriteString(centerBlock(card, m.width))
 			b.WriteString("\n")
 		}
 		// Scroll indicator
@@ -387,7 +389,7 @@ func (m DashboardModel) View() string {
 
 	// Help bar
 	b.WriteString("\n")
-	b.WriteString(m.renderHelpBar())
+	b.WriteString(centerBlock(m.renderHelpBar(), m.width))
 
 	return b.String()
 }
@@ -446,14 +448,17 @@ func (m DashboardModel) renderHeader() string {
 }
 
 func (m DashboardModel) renderEmptyState() string {
-	var b strings.Builder
-	b.WriteString("\n")
+	boxWidth := 56
+	leftPad := (m.width - boxWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorMuted).
 		Padding(1, 2).
-		MarginLeft(2).
-		Width(56).
+		Width(boxWidth).
 		Render(
 			dashDetailStyle.Render("No subjects found.")+"\n\n"+
 				dashDetailStyle.Render("Add content to:")+"\n"+
@@ -461,6 +466,10 @@ func (m DashboardModel) renderEmptyState() string {
 				dashHintStyle.Render("Each subject needs concepts/, flashcards/,"),
 			dashHintStyle.Render("and quizzes/ folders with .md files."),
 		)
+
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat(" ", leftPad))
 	b.WriteString(box)
 	b.WriteString("\n\n  ")
 	b.WriteString(helpStyle.Render("q quit"))
@@ -511,12 +520,14 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 		lines = append(lines, "  "+dashHintStyle.Render("press f to start studying"))
 	}
 
-	content := strings.Join(lines, "\n")
+	// Pad all lines to the same width so the card border wraps evenly
+	content := padLines(lines)
 
+	style := dashCardStyle
 	if selected {
-		return dashCardSelectedStyle.Render(content)
+		style = dashCardSelectedStyle
 	}
-	return dashCardStyle.Render(content)
+	return style.Render(content)
 }
 
 func (m DashboardModel) renderConfidenceBar(prog *progress.Progress, total int) string {
@@ -623,8 +634,13 @@ func (m DashboardModel) renderActionRow() string {
 		}
 	}
 
-	row := "  " + dashActionBarStyle.Render("→ ") + strings.Join(items, "  ")
-	return row + "\n"
+	row := dashActionBarStyle.Render("→ ") + strings.Join(items, "  ")
+	rowWidth := lipgloss.Width(row)
+	leftPad := (m.width - rowWidth) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	return strings.Repeat(" ", leftPad) + row + "\n"
 }
 
 func (m DashboardModel) renderHelpBar() string {
@@ -691,4 +707,44 @@ func countQuizzes(subjectsDir, subject string) int {
 		count += len(set.Questions)
 	}
 	return count
+}
+
+func padLines(lines []string) string {
+	maxW := 0
+	for _, l := range lines {
+		w := lipgloss.Width(l)
+		if w > maxW {
+			maxW = w
+		}
+	}
+	padded := make([]string, len(lines))
+	for i, l := range lines {
+		w := lipgloss.Width(l)
+		if w < maxW {
+			padded[i] = l + strings.Repeat(" ", maxW-w)
+		} else {
+			padded[i] = l
+		}
+	}
+	return strings.Join(padded, "\n")
+}
+
+func centerBlock(text string, width int) string {
+	maxW := 0
+	for _, line := range strings.Split(text, "\n") {
+		w := lipgloss.Width(line)
+		if w > maxW {
+			maxW = w
+		}
+	}
+	leftPad := (width - maxW) / 2
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	pad := strings.Repeat(" ", leftPad)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = pad + line
+	}
+	return strings.Join(lines, "\n")
 }

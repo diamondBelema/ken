@@ -34,7 +34,7 @@ func runFlashcards(subject string) error {
 	}
 	progress.InitConcepts(prog, concepts)
 
-	sess, err := study.LoadFlashcards(subjectDir, subject)
+	sess, err := study.LoadFlashcards(subjectDir, subject, prog)
 	if err != nil {
 		return err
 	}

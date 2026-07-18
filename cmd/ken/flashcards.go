@@ -42,7 +42,7 @@ var flashcardsCmd = &cobra.Command{
 		}
 		progress.InitConcepts(prog, concepts)
 
-		sess, err := study.LoadFlashcards(subjectDir, subject)
+		sess, err := study.LoadFlashcards(subjectDir, subject, prog)
 		if err != nil {
 			return err
 		}

@@ -10,6 +10,24 @@ import (
 	"github.com/diamondBelema/ken/internal/parser"
 )
 
+const stateDirName = "ken"
+
+func StateDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	return filepath.Join(home, ".local", "share", stateDirName), nil
+}
+
+func SubjectPath(subject string) (string, error) {
+	dir, err := StateDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, subject+".json"), nil
+}
+
 type Progress struct {
 	FormatVersion int                    `json:"format_version"`
 	Concepts      map[string]ConceptState `json:"concepts"`

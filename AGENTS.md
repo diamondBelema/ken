@@ -18,9 +18,10 @@ Early scaffold. Only `main.go` has code (placeholder print). All `internal/` and
 ## Build & run
 
 ```bash
-go build -o ken .        # build binary
-go run .                 # run directly
-go vet ./...             # static analysis
+go build -o ken ./cmd/ken    # build binary
+go run ./cmd/ken             # run directly
+go vet ./...                 # static analysis
+go test ./...                # unit tests
 ```
 
 No Makefile, CI, linter config, or test suite exists yet.
@@ -28,31 +29,46 @@ No Makefile, CI, linter config, or test suite exists yet.
 ## Package layout
 
 ```
-cmd/ken/          # intended CLI entrypoint (currently empty)
+cmd/ken/
+  main.go           # cobra root command
+  subjects.go       # ken subjects — list subjects with file counts
+  flashcards.go     # ken flashcards <subject> — launch TUI study
 internal/
-  mastery/        # Bayesian confidence engine (port of BayesianConfidenceStrategyV2)
-  parser/         # YAML frontmatter + markdown body parsing
-  progress/       # progress.json read/write
-  study/          # study session logic
-  tui/            # bubbletea models, views, update loops
+  discovery/        # scan ~/Documents/learn/subjects/
+  mastery/          # Bayesian confidence engine (port of BayesianConfidenceStrategyV2)
+  parser/           # YAML frontmatter + markdown body parsing
+  progress/         # progress state read/write (XDG data dir)
+  study/            # study session logic
+  tui/              # bubbletea models, views, update loops
 ```
-
-All `internal/` packages are empty. Code goes in `main.go` for now.
 
 ## Key conventions from the spec
 
 - **Confidence, not SM-2.** Mastery lives on *concepts*, not cards. Cards/quizzes are evidence that updates a concept's Bayesian confidence score. The full Go algorithm is in `ken-spec.md` (lines 142–268) — it's copy-paste ready with exact constants: `decayRatePerDay = 0.95`, `inertia = 0.8`, `maxDailyDelta = 0.08`, confidence bounds `0.05`–`0.995`.
 - **5-level grading, not 4.** Flashcard study presents Unknown/KnownLittle/KnownFairly/KnownWell/Mastered — don't remap a 4-button scheme onto this, the algorithm depends on the 5-level likelihood mapping.
 - **`concept_id` is the link.** Cards and questions with a `concept_id` update that concept's confidence on grade. Without one, the card still studies but contributes no mastery signal.
-- **`progress.json`** is the only file `ken` writes. It has three maps: `concepts` (confidence + last_reviewed_at), `cards` (reviews + last_grade), `quizzes` (attempts + correct + streak). Everything else under `subjects/` is read-only input.
 - **IDs must be unique per subject** across all files — parser must error on collision at load time.
 - **Unknown quiz types** (`mcq`, `true_false`, `fill_blank` are valid) → warn + skip, never crash.
 - **Anomaly tolerance** in quiz grading: a miss from a concept with confidence > 0.75 uses likelihood 0.45 (assume slip), not 0.3 (true gap). Don't flatten this.
 - **No generation, no network, no auth** — single local user, single machine.
 
-## Data directory
+## Data architecture — content vs state separation
 
-`~/Documents/learn/` — subjects are discovered by scanning directories under `subjects/`. No registry file. Each subject can contain `concepts/`, `flashcards/`, and `quizzes/` subdirectories.
+**Content (read-only):** `~/Documents/learn/subjects/<subject>/`
+- `concepts/*.md` — concept definitions with hierarchy
+- `flashcards/*.md` — flashcard sets
+- `quizzes/*.md` — quiz sets
+- Nothing in this tree is ever written to by ken.
+
+**State (writable):** `~/.local/share/ken/`
+- `<subject>.json` — per-subject progress (concepts, cards, quizzes)
+- `stats.json` — aggregate stats (Phase 5)
+- Follows XDG Base Directory spec. Content directory stays100% read-only.
+
+This means:
+- Git repos containing course materials stay clean (no progress files)
+- Multiple users can study the same content independently
+- Reinstalling/updating content never touches progress
 
 ## When working on this repo
 

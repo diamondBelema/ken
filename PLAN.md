@@ -22,7 +22,7 @@ internal/
     mastery.go         # Bayesian confidence engine (spec lines 142–268, copy-paste)
     mastery_test.go    # unit tests per spec acceptance criteria
   progress/
-    progress.go        # Load/Save/Create progress.json, CRUD for concept/card/quiz state
+    progress.go        # Load/Save/Create state files (~/.local/share/ken/), CRUD for concept/card/quiz state
   study/
     flashcards.go      # FlashcardSession — loads cards, drives study loop, writes progress
     quiz.go            # QuizSession — loads questions, drives quiz loop, writes progress

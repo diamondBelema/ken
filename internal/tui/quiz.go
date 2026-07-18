@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/mastery"
+	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
 )
@@ -268,6 +269,24 @@ func compareAnswer(user, spec interface{}) bool {
 	return false
 }
 
+func formatAnswer(q parser.Question) string {
+	switch a := q.Answer.(type) {
+	case int:
+		if q.Type == "mcq" && a >= 1 && a <= len(q.Options) {
+			return fmt.Sprintf("%d) %s", a, q.Options[a-1])
+		}
+		return fmt.Sprintf("%d", a)
+	case bool:
+		if a {
+			return "true"
+		}
+		return "false"
+	case string:
+		return a
+	}
+	return fmt.Sprintf("%v", q.Answer)
+}
+
 func (m QuizModel) View() string {
 	if m.width == 0 {
 		m.width = 80
@@ -325,6 +344,10 @@ func (m QuizModel) View() string {
 		} else {
 			b.WriteString("  ")
 			b.WriteString(lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Incorrect"))
+			b.WriteString("\n")
+			b.WriteString(fmt.Sprintf("  %s %s\n",
+				lipgloss.NewStyle().Foreground(colorMuted).Render("correct answer:"),
+				formatAnswer(q)))
 		}
 		b.WriteString("\n")
 

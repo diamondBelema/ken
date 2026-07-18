@@ -385,10 +385,7 @@ func (m DashboardModel) View() string {
 		b.WriteString(m.renderActionRow())
 	}
 
-	// Status bar
-	b.WriteString(strings.Repeat("─", m.width))
-	b.WriteString("\n")
-	b.WriteString(m.renderStatusBar())
+	// Help bar
 	b.WriteString("\n")
 	b.WriteString(m.renderHelpBar())
 
@@ -405,31 +402,45 @@ func (m DashboardModel) renderHeader() string {
 	b.WriteString(dashTaglineStyle.Render("a terminal study harness that forgets nothing on purpose"))
 	b.WriteString("\n")
 
-	// Aggregate stats
-	totalConcepts, totalMastered, totalCards, totalQuizzes := 0, 0, 0, 0
+	// Confidence distribution
+	weak, dev, strong, total := 0, 0, 0, 0
 	for _, s := range m.subjects {
 		prog := m.progData[s.Name]
 		concepts := m.conceptData[s.Name]
-		totalConcepts += len(concepts)
-		totalCards += m.cardCounts[s.Name]
-		totalQuizzes += m.quizCounts[s.Name]
-		if prog != nil {
-			for _, cs := range prog.Concepts {
-				if cs.Confidence >= 0.7 {
-					totalMastered++
+		for _, c := range concepts {
+			total++
+			conf := 0.5
+			if prog != nil {
+				if cs, ok := prog.Concepts[c.ID]; ok {
+					conf = cs.Confidence
 				}
+			}
+			switch {
+			case conf < 0.3:
+				weak++
+			case conf < 0.7:
+				dev++
+			default:
+				strong++
 			}
 		}
 	}
 
-	pct := 0
-	if totalConcepts > 0 {
-		pct = (totalMastered * 100) / totalConcepts
-	}
+	if total > 0 {
+		weakPct := weak * 30 / total
+		devPct := dev * 30 / total
+		strongPct := 30 - weakPct - devPct
 
-	statsLine := fmt.Sprintf("  %d concepts  ·  %d mastered (%d%%)  ·  %d cards  ·  %d quizzes  ·  %d subjects",
-		totalConcepts, totalMastered, pct, totalCards, totalQuizzes, len(m.subjects))
-	b.WriteString(dashStatsRowStyle.Render(statsLine))
+		distLine := fmt.Sprintf("  Weak %s%s  ·  Developing %s%s  ·  Strong %s%s  ·  %d concepts",
+			dashDistWeakStyle.Render(strings.Repeat("█", weakPct)+strings.Repeat("░", 30-weakPct)),
+			dashDistWeakStyle.Render(fmt.Sprintf(" %d", weak)),
+			dashDistDevStyle.Render(strings.Repeat("█", devPct)+strings.Repeat("░", 30-devPct)),
+			dashDistDevStyle.Render(fmt.Sprintf(" %d", dev)),
+			dashDistStrongStyle.Render(strings.Repeat("█", strongPct)+strings.Repeat("░", 30-strongPct)),
+			dashDistStrongStyle.Render(fmt.Sprintf(" %d", strong)),
+			total)
+		b.WriteString(dashStatsRowStyle.Render(distLine))
+	}
 
 	return b.String()
 }
@@ -460,15 +471,9 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	prog := m.progData[s.Name]
 	concepts := m.conceptData[s.Name]
 	conceptCount := len(concepts)
-	mastered := 0
 	noteCount := 0
 	if prog != nil {
 		noteCount = len(prog.Notes)
-		for _, cs := range prog.Concepts {
-			if cs.Confidence >= 0.7 {
-				mastered++
-			}
-		}
 	}
 
 	var lines []string
@@ -483,8 +488,6 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	badge := ""
 	if due > 0 {
 		badge = "  " + dashBadgeDueStyle.Render(fmt.Sprintf("%d due", due))
-	} else if mastered == conceptCount && conceptCount > 0 {
-		badge = "  " + lipgloss.NewStyle().Foreground(colorSuccess).Render("all mastered")
 	}
 
 	lastStudied := m.lastStudiedText(s.Name)
@@ -496,7 +499,7 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	lines = append(lines, name+badge+timestamp)
 
 	// Confidence bar
-	lines = append(lines, "  "+m.renderGradientBar(prog, conceptCount))
+	lines = append(lines, "  "+m.renderConfidenceBar(prog, conceptCount))
 
 	// Stats line
 	stats := fmt.Sprintf("  %d concepts  ·  %d cards  ·  %d quizzes  ·  %d notes",
@@ -504,7 +507,7 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	lines = append(lines, dashDetailStyle.Render(stats))
 
 	// Hint for unstudied subjects
-	if conceptCount > 0 && due == conceptCount && mastered == 0 {
+	if conceptCount > 0 && due == conceptCount {
 		lines = append(lines, "  "+dashHintStyle.Render("press f to start studying"))
 	}
 
@@ -516,55 +519,37 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	return dashCardStyle.Render(content)
 }
 
-func (m DashboardModel) renderGradientBar(prog *progress.Progress, total int) string {
+func (m DashboardModel) renderConfidenceBar(prog *progress.Progress, total int) string {
 	if total == 0 {
-		return dashBarEmptyStyle.Render(strings.Repeat("─", 30)) + " " + dashDetailStyle.Render("0%")
+		return dashDetailStyle.Render("no concepts")
 	}
 
-	mastered := 0
+	sum := 0.0
+	count := 0
 	if prog != nil {
 		for _, cs := range prog.Concepts {
-			if cs.LastReviewedAt != nil && cs.Confidence >= 0.7 {
-				mastered++
-			}
+			sum += cs.Confidence
+			count++
 		}
 	}
 
-	barWidth := 30
-	if m.width > 0 && m.width-30 < barWidth {
-		barWidth = m.width - 30
-		if barWidth < 10 {
-			barWidth = 10
-		}
+	if count == 0 {
+		return dashDetailStyle.Render("0% confidence")
 	}
 
-	filled := 0
-	if total > 0 {
-		filled = (mastered * barWidth) / total
-	}
+	avg := sum / float64(count) * 100
 
-	filledStyle := dashBarFilledStyle
-	pct := 0
-	if total > 0 {
-		pct = (mastered * 100) / total
-	}
-
+	var style lipgloss.Style
 	switch {
-	case pct < 30:
-		filledStyle = dashBarRedStyle
-	case pct < 60:
-		filledStyle = dashBarAmberStyle
-	case pct >= 85:
-		filledStyle = dashBarTealStyle
+	case avg < 30:
+		style = dashDistWeakStyle
+	case avg < 70:
+		style = dashDistDevStyle
+	default:
+		style = dashDistStrongStyle
 	}
 
-	barFilled := strings.Repeat("━", filled)
-	barEmpty := strings.Repeat("─", barWidth-filled)
-
-	result := filledStyle.Render(barFilled) + dashBarEmptyStyle.Render(barEmpty)
-	result += fmt.Sprintf(" %d%%", pct)
-
-	return result
+	return style.Render(fmt.Sprintf("%.0f%% confidence", avg))
 }
 
 func (m DashboardModel) dueCount(subject string) int {
@@ -642,29 +627,9 @@ func (m DashboardModel) renderActionRow() string {
 	return row + "\n"
 }
 
-func (m DashboardModel) renderStatusBar() string {
-	totalConcepts, totalMastered := 0, 0
-	for _, s := range m.subjects {
-		concepts := m.conceptData[s.Name]
-		totalConcepts += len(concepts)
-		prog := m.progData[s.Name]
-		if prog != nil {
-			for _, cs := range prog.Concepts {
-				if cs.Confidence >= 0.7 {
-					totalMastered++
-				}
-			}
-		}
-	}
-
-	statsLine := fmt.Sprintf("  %d concepts  ·  %d mastered  ·  %d subjects",
-		totalConcepts, totalMastered, len(m.subjects))
-	return statusBarStyle.Render(statsLine)
-}
-
 func (m DashboardModel) renderHelpBar() string {
 	if m.state == dashActionRow {
-		return helpStyle.Render("  j/k select action  ·  enter launch  ·  esc back")
+		return helpStyle.Render("  j/k select  ·  enter launch  ·  esc back")
 	}
 	if m.state == dashFiltering {
 		return helpStyle.Render("  type to filter  ·  enter confirm  ·  esc clear")

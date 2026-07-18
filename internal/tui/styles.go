@@ -162,10 +162,12 @@ var (
 				Foreground(colorMuted).
 				MarginBottom(1)
 
-	dashBarFilledStyle = lipgloss.NewStyle().Foreground(colorSuccess)
-	dashBarEmptyStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	// Confidence distribution
+	dashDistWeakStyle  = lipgloss.NewStyle().Foreground(colorDanger)
+	dashDistDevStyle   = lipgloss.NewStyle().Foreground(colorWarning)
+	dashDistStrongStyle = lipgloss.NewStyle().Foreground(colorSuccess)
 
-	dashBarAmberStyle = lipgloss.NewStyle().Foreground(colorWarning)
-	dashBarRedStyle    = lipgloss.NewStyle().Foreground(colorDanger)
-	dashBarTealStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("45"))
+	// Confidence bar
+	dashConfBarFilled = lipgloss.NewStyle().Foreground(colorSuccess)
+	dashConfBarEmpty  = lipgloss.NewStyle().Foreground(colorMuted)
 )

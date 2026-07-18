@@ -370,6 +370,7 @@ func (m DashboardModel) View() string {
 		}
 		for i := m.scrollTop; i < end; i++ {
 			b.WriteString(m.renderSubjectCard(filtered[i], i == m.selected))
+			b.WriteString("\n")
 		}
 		// Scroll indicator
 		if len(filtered) > visible {
@@ -510,9 +511,9 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	content := strings.Join(lines, "\n")
 
 	if selected {
-		return dashCardSelectedStyle.Width(m.width - 4).Render(content)
+		return dashCardSelectedStyle.Render(content)
 	}
-	return dashCardStyle.Width(m.width - 4).Render(content)
+	return dashCardStyle.Render(content)
 }
 
 func (m DashboardModel) renderGradientBar(prog *progress.Progress, total int) string {

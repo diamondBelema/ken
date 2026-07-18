@@ -27,39 +27,25 @@ var rootCmd = &cobra.Command{
 			}
 
 			result := dm.Result()
+			var launchErr error
 			switch result.Action {
 			case "flashcards":
-				flashcardsCmd.SetArgs([]string{result.Subject})
-				if err := flashcardsCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runFlashcards(result.Subject)
 			case "quiz":
-				quizCmd.SetArgs([]string{result.Subject})
-				if err := quizCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runQuiz(result.Subject)
 			case "notes":
-				notesCmd.SetArgs([]string{result.Subject})
-				if err := notesCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runNotes(result.Subject)
 			case "summaries":
-				summariesCmd.SetArgs([]string{result.Subject})
-				if err := summariesCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runSummaries(result.Subject)
 			case "read":
-				readCmd.SetArgs([]string{result.Subject})
-				if err := readCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runRead(result.Subject)
 			case "progress":
-				progressCmd.SetArgs([]string{result.Subject})
-				if err := progressCmd.Execute(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				}
+				launchErr = runProgress(result.Subject)
 			default:
 				return nil
+			}
+			if launchErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", launchErr)
 			}
 		}
 	},

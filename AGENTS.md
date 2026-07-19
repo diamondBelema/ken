@@ -6,15 +6,15 @@
 
 ## Project state
 
-All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Now adding new features: notes, summaries, diagrams, links, markdown rendering, and raw content reading (`ken read`).
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`. TUI renders with bubbletea. Mastery engine has 7 passing tests. New features implemented: notes, summaries, diagrams (external SVG + mermaid), links, markdown rendering, and content reading.
 
 ## Tech stack
 
 - **Go** (module: `github.com/diamondBelema/ken`)
 - **CLI:** Cobra
 - **TUI:** Charmbracelet stack — `bubbletea` v1.3.10, `bubbles` v1.0.0, `lipgloss` v1.1.0
-- **Markdown:** `glamour` v2 (planned — for rendering markdown in TUI)
-- **Diagrams:** `mermaigo` (ASCII), `go-mermaid` (SVG) — both planned
+- **Markdown:** `glamour` v2 for rendering markdown in TUI
+- **Diagrams:** `mermaigo` (ASCII), `go-mermaid` (SVG) — both integrated
 - **Parsing:** `gopkg.in/yaml.v3` for YAML frontmatter
 
 ## Build & run

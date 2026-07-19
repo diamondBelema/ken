@@ -295,7 +295,7 @@ func (m FlashcardModel) View() string {
 
 		if m.showConceptDetail {
 			concept := lookupConcept(m.conceptMap, card.ConceptID)
-			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width)
+			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width, m.conceptMap)
 			headerH := 3
 			footerH := 1
 			visible := m.height - headerH - footerH
@@ -341,7 +341,7 @@ func (m FlashcardModel) View() string {
 
 		if m.showConceptDetail {
 			concept := lookupConcept(m.conceptMap, card.ConceptID)
-			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width)
+			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width, m.conceptMap)
 			headerH := 3
 			footerH := 1
 			visible := m.height - headerH - footerH

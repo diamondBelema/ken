@@ -16,11 +16,7 @@ import (
 const stateDirName = "ken"
 
 func StateDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
-	}
-	return filepath.Join(home, ".local", "share", stateDirName), nil
+	return stateDir()
 }
 
 func SubjectPath(subject string) (string, error) {

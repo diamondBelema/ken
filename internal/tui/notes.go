@@ -289,7 +289,15 @@ func (m NotesModel) updateNew(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *NotesModel) cycleLinkTarget() {
 	targets := []*progress.EntityRef{nil}
 
-	for _, c := range m.concepts {
+	sorted := sortedConceptsByHierarchy(m.concepts)
+	conceptMap := buildConceptMap(m.concepts)
+	for _, c := range sorted {
+		depth := conceptDepth(conceptMap, c.ID)
+		indent := ""
+		if depth > 0 {
+			indent = strings.Repeat("  ", depth) + "├─ "
+		}
+		_ = indent
 		targets = append(targets, &progress.EntityRef{Type: "concept", ID: c.ID})
 	}
 
@@ -484,9 +492,16 @@ func (m NotesModel) View() string {
 	case notesNew:
 		linkLabel := "unlinked"
 		if m.noteLinkedTo != nil {
-			linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
+			linkLabel = m.noteLinkedTo.ID
+			if m.noteLinkedTo.Type == "concept" {
+				conceptMap := buildConceptMap(m.concepts)
+				d := conceptDepth(conceptMap, m.noteLinkedTo.ID)
+				if d > 0 {
+					linkLabel = strings.Repeat("  ", d) + "├─ " + linkLabel
+				}
+			}
 		}
-		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  new note  %s", linkLabel)))
+		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  new note  → %s", linkLabel)))
 		b.WriteString("\n  ")
 		b.WriteString(m.editInput.View())
 		b.WriteString("\n\n")

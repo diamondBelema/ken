@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/render"
 	"github.com/diamondBelema/ken/internal/study"
+	"github.com/diamondBelema/ken/internal/system"
 )
 
 type progressViewState int
@@ -28,6 +28,7 @@ const (
 
 type ProgressModel struct {
 	subject        string
+	subjectDir     string
 	subjects       []discovery.SubjectInfo
 	progData       map[string]*progress.Progress
 	conceptData    map[string][]parser.Concept
@@ -47,6 +48,7 @@ type ProgressModel struct {
 
 type progressLoadedMsg struct {
 	subject     string
+	subjectDir  string
 	subjects    []discovery.SubjectInfo
 	progData    map[string]*progress.Progress
 	conceptData map[string][]parser.Concept
@@ -93,7 +95,13 @@ func (m ProgressModel) Init() tea.Cmd {
 			}
 		}
 
-		return progressLoadedMsg{subject: m.subject, subjects: subjects, progData: progData, conceptData: conceptData}
+		return progressLoadedMsg{
+			subject:     m.subject,
+			subjectDir:  filepath.Join(subjectsDir, m.subject),
+			subjects:    subjects,
+			progData:    progData,
+			conceptData: conceptData,
+		}
 	}
 }
 
@@ -101,6 +109,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case progressLoadedMsg:
 		m.subject = msg.subject
+		m.subjectDir = msg.subjectDir
 		m.subjects = msg.subjects
 		m.progData = msg.progData
 		m.conceptData = msg.conceptData
@@ -162,24 +171,48 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampScroll()
 		case "v":
 			if item, ok := m.selectedItem(items); ok && item.diagramSource != "" {
-				ascii, err := diagram.RenderASCII(item.diagramSource)
-				if err != nil {
-					ascii = fmt.Sprintf("render error: %v", err)
+				if item.diagramIsSVG {
+					// SVG files can't be ASCII rendered - show info message
+					m.diagramContent = "  SVG diagram loaded.\n\n  Press 'd' to open in external viewer,\n  or 'q' to go back."
+					m.diagramConcept = item.diagramLabel
+					m.viewState = progressDiagramView
+				} else {
+					// Mermaid source - render ASCII
+					ascii, err := diagram.RenderASCII(item.diagramSource)
+					if err != nil {
+						ascii = fmt.Sprintf("render error: %v", err)
+					}
+					m.diagramContent = ascii
+					m.diagramConcept = item.diagramLabel
+					m.viewState = progressDiagramView
 				}
-				m.diagramContent = ascii
-				m.diagramConcept = item.id
-				m.viewState = progressDiagramView
 			}
 		case "d":
 			if item, ok := m.selectedItem(items); ok && item.diagramSource != "" {
-				tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("ken-diagram-%s.svg", item.id))
-				if err := diagram.RenderSVGToFile(item.diagramSource, tmpPath); err == nil {
-					exec.Command("xdg-open", tmpPath).Start()
+				if item.diagramIsSVG && item.diagramFile != "" {
+					// External SVG file - open directly
+					subjDir := m.subjectDir
+					if subjDir == "" {
+						home, _ := os.UserHomeDir()
+						if home != "" {
+							subjDir = filepath.Join(home, "Documents", "learn", "subjects", m.subject)
+						}
+					}
+					if subjDir != "" {
+						svgPath := filepath.Join(subjDir, item.diagramFile)
+						system.OpenFile(svgPath)
+					}
+				} else {
+					// Mermaid source - render to SVG and open
+					tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("ken-diagram-%s.svg", item.id))
+					if err := diagram.RenderSVGToFile(item.diagramSource, tmpPath); err == nil {
+						system.OpenFile(tmpPath)
+					}
 				}
 			}
 		case "l":
 			if item, ok := m.selectedItem(items); ok && item.linkURL != "" {
-				exec.Command("xdg-open", item.linkURL).Start()
+				system.OpenURL(item.linkURL)
 			}
 		case "enter", " ":
 			if item, ok := m.selectedItem(items); ok && item.fullDesc != "" {
@@ -208,9 +241,13 @@ type progressItem struct {
 	noteCount     int
 	diagramCount  int
 	diagramSource string
+	diagramFile   string
+	diagramLabel  string
+	diagramIsSVG  bool
 	linkCount     int
 	linkURL       string
 	linkTitle     string
+	depth         int
 }
 
 func (m ProgressModel) collectItems() []progressItem {
@@ -233,10 +270,16 @@ func (m ProgressModel) collectItems() []progressItem {
 			continue
 		}
 		concepts := m.conceptData[s.Name]
+		conceptMap := buildConceptMap(concepts)
+		hierarchy := sortedConceptsByHierarchy(concepts)
 
-		for _, id := range progress.ConceptIDs(prog) {
-			cs := prog.Concepts[id]
-			item := progressItem{id: id}
+		for _, c := range hierarchy {
+			id := c.ID
+			cs, ok := prog.Concepts[id]
+			if !ok {
+				continue
+			}
+			item := progressItem{id: id, depth: conceptDepth(conceptMap, id)}
 			item.status = "unknown"
 			item.statusColor = lipgloss.NewStyle().Foreground(colorMuted)
 			if cs.LastReviewedAt != nil {
@@ -248,32 +291,48 @@ func (m ProgressModel) collectItems() []progressItem {
 					item.statusColor = lipgloss.NewStyle().Foreground(colorWarning)
 				}
 			}
-
-		for _, c := range concepts {
-			if c.ID == id {
-				if c.Name != "" {
-					item.name = c.Name
-				}
-				if c.Description != "" {
-					item.desc = runeTruncate(c.Description, 80)
-					item.fullDesc = c.Description
-				}
-				if c.Summary != "" {
-					item.summary = runeTruncate(c.Summary, 80)
-				}
-					item.userSummaries = len(prog.SummariesForConcept(id))
-					item.noteCount = len(prog.NotesForConcept(id))
-					item.diagramCount = len(c.Diagrams)
-					if len(c.Diagrams) > 0 {
-						item.diagramSource = c.Diagrams[0].Source
+			if c.Name != "" {
+				item.name = c.Name
+			}
+			if c.Description != "" {
+				item.desc = runeTruncate(c.Description, 80)
+				item.fullDesc = c.Description
+			}
+			if c.Summary != "" {
+				item.summary = runeTruncate(c.Summary, 80)
+			}
+			item.userSummaries = len(prog.SummariesForConcept(id))
+			item.noteCount = len(prog.NotesForConcept(id))
+			item.diagramCount = len(c.Diagrams)
+			if len(c.Diagrams) > 0 {
+				diag := c.Diagrams[0]
+				item.diagramLabel = diag.Label
+				item.diagramFile = diag.File
+				if diag.Source != "" {
+					item.diagramSource = diag.Source
+				} else if diag.File != "" {
+					// Resolve external file
+					subjDir := m.subjectDir
+					if subjDir == "" {
+						// Fallback: build from subject name
+						home, _ := os.UserHomeDir()
+						if home != "" {
+							subjDir = filepath.Join(home, "Documents", "learn", "subjects", s.Name)
+						}
 					}
-					item.linkCount = len(c.Links)
-					if len(c.Links) > 0 {
-						item.linkURL = c.Links[0].URL
-						item.linkTitle = c.Links[0].Title
+					if subjDir != "" {
+						source, err := diagram.ResolveDiagramSource("", diag.File, subjDir)
+						if err == nil {
+							item.diagramSource = source
+							item.diagramIsSVG = diagram.IsSVGFile(diag.File)
+						}
 					}
-					break
 				}
+			}
+			item.linkCount = len(c.Links)
+			if len(c.Links) > 0 {
+				item.linkURL = c.Links[0].URL
+				item.linkTitle = c.Links[0].Title
 			}
 			items = append(items, item)
 		}
@@ -467,17 +526,23 @@ func (m ProgressModel) View() string {
 		if item.name != "" {
 			displayName = item.name
 		}
+
+		indent := ""
+		if item.depth > 0 {
+			indent = strings.Repeat("  ", item.depth) + "├─ "
+		}
+
 		if i == m.selected {
-			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", displayName, item.status)))
+			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s%s  %s", indent, displayName, item.status)))
 			b.WriteString("\n")
 		} else {
-			b.WriteString(fmt.Sprintf("  %s  %s\n", lipgloss.NewStyle().Foreground(colorTextBright).Bold(true).Render(displayName), item.statusColor.Render(item.status)))
+			b.WriteString(fmt.Sprintf("  %s%s  %s\n", indent, lipgloss.NewStyle().Foreground(colorTextBright).Bold(true).Render(displayName), item.statusColor.Render(item.status)))
 		}
 		if item.desc != "" {
-			b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render(item.desc)))
+			b.WriteString(fmt.Sprintf("    %s%s\n", strings.Repeat("  ", item.depth), lipgloss.NewStyle().Foreground(colorMuted).Render(item.desc)))
 		}
 		if item.summary != "" {
-			b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Italic(true).Render(item.summary)))
+			b.WriteString(fmt.Sprintf("    %s%s\n", strings.Repeat("  ", item.depth), lipgloss.NewStyle().Foreground(colorMuted).Italic(true).Render(item.summary)))
 		}
 	}
 

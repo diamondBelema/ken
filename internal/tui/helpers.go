@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -60,7 +61,118 @@ func lookupConcept(conceptMap map[string]parser.Concept, conceptID string) *pars
 	return &c
 }
 
-func buildConceptMarkdown(concept *parser.Concept) string {
+type conceptTreeNode struct {
+	concept parser.Concept
+	depth   int
+	children []conceptTreeNode
+}
+
+func buildHierarchy(concepts []parser.Concept) []parser.Concept {
+	conceptMap := buildConceptMap(concepts)
+	childrenOf := make(map[string][]parser.Concept)
+	var roots []parser.Concept
+
+	for _, c := range concepts {
+		if c.ParentID == "" {
+			roots = append(roots, c)
+		} else {
+			childrenOf[c.ParentID] = append(childrenOf[c.ParentID], c)
+		}
+	}
+
+	var result []parser.Concept
+	var walk func(parentID string, depth int)
+	walk = func(parentID string, depth int) {
+		var kids []parser.Concept
+		if parentID == "" {
+			kids = roots
+		} else {
+			kids = childrenOf[parentID]
+		}
+		for _, c := range kids {
+			result = append(result, c)
+			_ = conceptMap
+			walk(c.ID, depth+1)
+		}
+	}
+	walk("", 0)
+	return result
+}
+
+func conceptDepth(conceptMap map[string]parser.Concept, id string) int {
+	depth := 0
+	for {
+		c, ok := conceptMap[id]
+		if !ok || c.ParentID == "" {
+			return depth
+		}
+		depth++
+		id = c.ParentID
+	}
+}
+
+func conceptChildren(conceptMap map[string]parser.Concept, parentID string) []parser.Concept {
+	var kids []parser.Concept
+	for _, c := range conceptMap {
+		if c.ParentID == parentID {
+			kids = append(kids, c)
+		}
+	}
+	sort.Slice(kids, func(i, j int) bool {
+		return kids[i].ID < kids[j].ID
+	})
+	return kids
+}
+
+func conceptBreadcrumb(conceptMap map[string]parser.Concept, id string) string {
+	var path []string
+	for {
+		c, ok := conceptMap[id]
+		if !ok {
+			break
+		}
+		path = append([]string{c.ID}, path...)
+		if c.ParentID == "" {
+			break
+		}
+		id = c.ParentID
+	}
+	return strings.Join(path, " > ")
+}
+
+func sortedConceptsByHierarchy(concepts []parser.Concept) []parser.Concept {
+	childrenOf := make(map[string][]parser.Concept)
+	var roots []parser.Concept
+	for _, c := range concepts {
+		if c.ParentID == "" {
+			roots = append(roots, c)
+		} else {
+			childrenOf[c.ParentID] = append(childrenOf[c.ParentID], c)
+		}
+	}
+
+	sort.SliceStable(roots, func(i, j int) bool {
+		return roots[i].ID < roots[j].ID
+	})
+	for k := range childrenOf {
+		sort.SliceStable(childrenOf[k], func(i, j int) bool {
+			return childrenOf[k][i].ID < childrenOf[k][j].ID
+		})
+	}
+
+	var result []parser.Concept
+	var walk func(parents []parser.Concept)
+	walk = func(parents []parser.Concept) {
+		for _, p := range parents {
+			result = append(result, p)
+			walk(childrenOf[p.ID])
+		}
+	}
+	walk(roots)
+	return result
+}
+
+func buildConceptMarkdown(concept *parser.Concept, conceptMap map[string]parser.Concept) string {
 	if concept == nil {
 		return ""
 	}
@@ -75,6 +187,22 @@ func buildConceptMarkdown(concept *parser.Concept) string {
 
 	if concept.Summary != "" {
 		parts = append(parts, fmt.Sprintf("## Summary\n\n%s\n", concept.Summary))
+	}
+
+	if conceptMap != nil {
+		if concept.ParentID != "" {
+			if parent, ok := conceptMap[concept.ParentID]; ok {
+				parts = append(parts, fmt.Sprintf("## Parent\n\n%s (`%s`)\n", parent.Name, parent.ID))
+			}
+		}
+		kids := conceptChildren(conceptMap, concept.ID)
+		if len(kids) > 0 {
+			var kidLines []string
+			for _, k := range kids {
+				kidLines = append(kidLines, fmt.Sprintf("- %s (`%s`)", k.Name, k.ID))
+			}
+			parts = append(parts, fmt.Sprintf("## Children\n\n%s\n", strings.Join(kidLines, "\n")))
+		}
 	}
 
 	if len(concept.Diagrams) > 0 {
@@ -92,12 +220,12 @@ func buildConceptMarkdown(concept *parser.Concept) string {
 	return strings.Join(parts, "\n")
 }
 
-func renderConceptDetail(concept *parser.Concept, prog *progress.Progress, conceptID string, width int) []string {
+func renderConceptDetail(concept *parser.Concept, prog *progress.Progress, conceptID string, width int, conceptMap map[string]parser.Concept) []string {
 	if concept == nil {
 		return []string{lipgloss.NewStyle().Foreground(colorMuted).Render("  No concept data available.")}
 	}
 
-	md := buildConceptMarkdown(concept)
+	md := buildConceptMarkdown(concept, conceptMap)
 	rendered := render.RenderMarkdown(md, width-4)
 	return strings.Split(rendered, "\n")
 }

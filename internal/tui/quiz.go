@@ -374,7 +374,7 @@ func (m QuizModel) View() string {
 
 		if m.showConceptDetail {
 			concept := lookupConcept(m.conceptMap, q.ConceptID)
-			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width)
+			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width, m.conceptMap)
 			headerH := 3
 			footerH := 1
 			visible := m.height - headerH - footerH
@@ -434,7 +434,7 @@ func (m QuizModel) View() string {
 
 		if m.showConceptDetail {
 			concept := lookupConcept(m.conceptMap, q.ConceptID)
-			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width)
+			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width, m.conceptMap)
 			headerH := 3
 			footerH := 1
 			visible := m.height - headerH - footerH

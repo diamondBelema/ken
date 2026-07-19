@@ -88,15 +88,6 @@ var (
 				PaddingLeft(1).
 				Bold(true)
 
-	statusBarStyle = lipgloss.NewStyle().
-			Foreground(colorSecondary).
-			Background(colorBg).
-			Padding(0, 1)
-
-	borderStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorBorder)
-
 	// Dashboard styles
 	dashCardStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -122,10 +113,6 @@ var (
 
 	dashBadgeDueStyle = lipgloss.NewStyle().
 				Foreground(colorWarning)
-
-	dashBadgeNeverStyle = lipgloss.NewStyle().
-				Foreground(colorMuted).
-				Italic(true)
 
 	dashHintStyle = lipgloss.NewStyle().
 			Foreground(colorAccent).
@@ -164,10 +151,6 @@ var (
 	dashDistWeakStyle  = lipgloss.NewStyle().Foreground(colorDanger)
 	dashDistDevStyle   = lipgloss.NewStyle().Foreground(colorWarning)
 	dashDistStrongStyle = lipgloss.NewStyle().Foreground(colorSuccess)
-
-	// Confidence bar
-	dashConfBarFilled = lipgloss.NewStyle().Foreground(colorSuccess)
-	dashConfBarEmpty  = lipgloss.NewStyle().Foreground(colorMuted)
 
 	// Activity panel
 	dashPanelHeaderStyle = lipgloss.NewStyle().

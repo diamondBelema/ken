@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/mastery"
+	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
 )
@@ -23,22 +24,24 @@ const (
 )
 
 type FlashcardModel struct {
-	session       *study.FlashcardSession
-	progress      *progress.Progress
-	state         flashcardState
-	score         int
-	total         int
-	err           error
-	noteInput     textinput.Model
-	noteLinkedTo  *progress.EntityRef
-	noteCycleIdx  int
-	width         int
-	height        int
+	session            *study.FlashcardSession
+	progress           *progress.Progress
+	concepts           []parser.Concept
+	conceptMap         map[string]parser.Concept
+	state              flashcardState
+	prevState          flashcardState
+	score              int
+	total              int
+	noteInput          textinput.Model
+	noteLinkedTo       *progress.EntityRef
+	noteCycleIdx       int
+	width              int
+	height             int
+	showConceptDetail  bool
+	conceptDetailScroll int
 }
 
-type flashcardQuitMsg struct{}
-
-func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress) FlashcardModel {
+func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress, concepts []parser.Concept) FlashcardModel {
 	ti := textinput.New()
 	ti.Placeholder = "Type a note..."
 	ti.Focus()
@@ -48,6 +51,8 @@ func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress) Fl
 	return FlashcardModel{
 		session:   sess,
 		progress:  prog,
+		concepts:  concepts,
+		conceptMap: buildConceptMap(concepts),
 		state:     fcShowingFront,
 		total:     len(sess.Cards),
 		noteInput: ti,
@@ -70,9 +75,35 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch m.state {
 		case fcShowingFront:
+			if m.showConceptDetail {
+				switch msg.String() {
+				case "c":
+					m.showConceptDetail = false
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "j", "down":
+					m.conceptDetailScroll++
+					return m, nil
+				case "k", "up":
+					if m.conceptDetailScroll > 0 {
+						m.conceptDetailScroll--
+					}
+					return m, nil
+				case "g":
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "G":
+					m.conceptDetailScroll = 999999
+					return m, nil
+				}
+			}
 			switch msg.String() {
 			case " ", "enter":
 				m.state = fcShowingBack
+				return m, nil
+			case "c":
+				m.showConceptDetail = true
+				m.conceptDetailScroll = 0
 				return m, nil
 			case "n":
 				return m.startNoteInput(), nil
@@ -81,6 +112,28 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case fcShowingBack:
+			if m.showConceptDetail {
+				switch msg.String() {
+				case "c":
+					m.showConceptDetail = false
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "j", "down":
+					m.conceptDetailScroll++
+					return m, nil
+				case "k", "up":
+					if m.conceptDetailScroll > 0 {
+						m.conceptDetailScroll--
+					}
+					return m, nil
+				case "g":
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "G":
+					m.conceptDetailScroll = 999999
+					return m, nil
+				}
+			}
 			switch msg.String() {
 			case "1":
 				m = m.gradeCard(mastery.Unknown)
@@ -96,6 +149,10 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "5":
 				m = m.gradeCard(mastery.Mastered)
+				return m, nil
+			case "c":
+				m.showConceptDetail = true
+				m.conceptDetailScroll = 0
 				return m, nil
 			case "n":
 				return m.startNoteInput(), nil
@@ -114,6 +171,7 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m FlashcardModel) startNoteInput() FlashcardModel {
+	m.prevState = m.state
 	m.state = fcNoteInput
 	m.noteInput.SetValue("")
 	m.noteInput.Focus()
@@ -153,11 +211,11 @@ func (m FlashcardModel) updateNoteInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.TrimSpace(content) != "" {
 				m.progress.AddNote(content, m.noteLinkedTo)
 			}
-			m.state = fcShowingBack
+			m.state = m.prevState
 			m.noteInput.SetValue("")
 			return m, nil
 		case "esc":
-			m.state = fcShowingBack
+			m.state = m.prevState
 			m.noteInput.SetValue("")
 			return m, nil
 		case "tab":
@@ -205,6 +263,8 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 
 	if m.session.Advance() {
 		m.state = fcShowingFront
+		m.showConceptDetail = false
+		m.conceptDetailScroll = 0
 	} else {
 		m.state = fcFinished
 	}
@@ -213,10 +273,6 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 }
 
 func (m FlashcardModel) View() string {
-	if m.err != nil {
-		return fmt.Sprintf("\n  Error: %v\n\n  Press q to exit.\n", m.err)
-	}
-
 	if m.width == 0 {
 		m.width = 80
 	}
@@ -232,50 +288,106 @@ func (m FlashcardModel) View() string {
 		card := m.session.Current()
 		cur, total := m.session.Progress()
 
-		progressBar := m.renderProgressBar(cur, total)
+		progressBar := renderProgressBar(cur, total)
 		b.WriteString("  ")
 		b.WriteString(progressBar)
 		b.WriteString("\n\n")
 
-		cardContent := lipgloss.NewStyle().
-			Width(max(m.width-8, 20)).
-			Render(frontStyle.Render(card.Front))
+		if m.showConceptDetail {
+			concept := lookupConcept(m.conceptMap, card.ConceptID)
+			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width)
+			headerH := 3
+			footerH := 1
+			visible := m.height - headerH - footerH
+			if visible < 1 {
+				visible = 10
+			}
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.conceptDetailScroll > maxScroll {
+				m.conceptDetailScroll = maxScroll
+			}
+			start := m.conceptDetailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  c close  ·  q quit"))
+		} else {
+			cardContent := lipgloss.NewStyle().
+				Width(max(m.width-8, 20)).
+				Render(frontStyle.Render(card.Front))
 
-		b.WriteString(cardStyle.Render(cardContent))
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  space/enter flip  ·  n note  ·  q quit"))
+			b.WriteString(cardStyle.Render(cardContent))
+			b.WriteString("\n")
+			b.WriteString(helpStyle.Render("  space/enter flip  ·  c concept  ·  n note  ·  q quit"))
+		}
 
 	case fcShowingBack:
 		card := m.session.Current()
 		cur, total := m.session.Progress()
 
-		progressBar := m.renderProgressBar(cur, total)
+		progressBar := renderProgressBar(cur, total)
 		b.WriteString("  ")
 		b.WriteString(progressBar)
 		b.WriteString("\n\n")
 
-		cardContent := lipgloss.NewStyle().
-			Width(max(m.width-8, 20)).
-			Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
+		if m.showConceptDetail {
+			concept := lookupConcept(m.conceptMap, card.ConceptID)
+			lines := renderConceptDetail(concept, m.progress, card.ConceptID, m.width)
+			headerH := 3
+			footerH := 1
+			visible := m.height - headerH - footerH
+			if visible < 1 {
+				visible = 10
+			}
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.conceptDetailScroll > maxScroll {
+				m.conceptDetailScroll = maxScroll
+			}
+			start := m.conceptDetailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  c close  ·  q quit"))
+		} else {
+			cardContent := lipgloss.NewStyle().
+				Width(max(m.width-8, 20)).
+				Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
 
-		b.WriteString(cardStyle.Render(cardContent))
-		if card.Notes != "" {
-			b.WriteString("\n  ")
-			b.WriteString(notesStyle.Render(card.Notes))
+			b.WriteString(cardStyle.Render(cardContent))
+			if card.Notes != "" {
+				b.WriteString("\n  ")
+				b.WriteString(notesStyle.Render(card.Notes))
+			}
+			b.WriteString("\n\n")
+
+			grades := lipgloss.JoinHorizontal(lipgloss.Center,
+				gradeUnknownStyle.Render("1:Unknown"),
+				gradeKnownLittleStyle.Render("2:KnownLittle"),
+				gradeKnownFairlyStyle.Render("3:KnownFairly"),
+				gradeKnownWellStyle.Render("4:KnownWell"),
+				gradeMasteredStyle.Render("5:Mastered"),
+			)
+			b.WriteString("  ")
+			b.WriteString(grades)
+			b.WriteString("\n")
+			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  q quit"))
 		}
-		b.WriteString("\n\n")
-
-		grades := lipgloss.JoinHorizontal(lipgloss.Center,
-			gradeUnknownStyle.Render("1:Unknown"),
-			gradeKnownLittleStyle.Render("2:KnownLittle"),
-			gradeKnownFairlyStyle.Render("3:KnownFairly"),
-			gradeKnownWellStyle.Render("4:KnownWell"),
-			gradeMasteredStyle.Render("5:Mastered"),
-		)
-		b.WriteString("  ")
-		b.WriteString(grades)
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  n note  ·  q quit"))
 
 	case fcNoteInput:
 		card := m.session.Current()
@@ -325,25 +437,6 @@ func (m FlashcardModel) View() string {
 	}
 
 	return b.String()
-}
-
-func (m FlashcardModel) renderProgressBar(current, total int) string {
-	barWidth := 20
-	filled := 0
-	if total > 0 {
-		filled = (current * barWidth) / total
-	}
-
-	barFilled := strings.Repeat("━", filled)
-	barEmpty := strings.Repeat("─", barWidth-filled)
-
-	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
-	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
-
-	result := filledStyle.Render(barFilled) + emptyStyle.Render(barEmpty)
-	result += fmt.Sprintf(" %d/%d", current, total)
-
-	return result
 }
 
 func confidenceLevelString(l mastery.ConfidenceLevel) string {

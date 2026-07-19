@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Concept detail view (`c` key) in flashcard and quiz study — shows concept name, description, summary, diagrams, links, note/summary counts
+- Concept detail view uses glamour markdown rendering with scroll support (j/k/g/G)
+- Shared helpers: `renderProgressBar`, `runeTruncate`, `buildConceptMap`, `lookupConcept`, `renderConceptDetail`
+- Content summaries from concept files shown in summaries view with `[content]` label
+
+### Fixed
+- Progress view scroll — overhead calculation was wrong (viewHeight-4 → viewHeight-6), causing beginning concepts to be cut off at terminal bottom
+- Flashcard note input returns to correct state (front or back) instead of always returning to back
+- Detail view scrolling in summaries with cached rendered lines
+
+### Changed
+- Flashcard/quiz constructors now accept `[]parser.Concept` for concept detail support
+- Concept detail and summary detail use `render.RenderMarkdown` (glamour) for proper markdown rendering
+
+### Removed
+- Dead styles: `statusBarStyle`, `borderStyle`, `dashBadgeNeverStyle`, `dashConfBarFilled`, `dashConfBarEmpty`
+- Dead types: `flashcardQuitMsg`
+- Duplicate `renderProgressBar` methods from flashcard/quiz models (now shared)
+- Duplicate `runeSafeTruncate` from progress model (now shared)
+
 ## [0.3.0] - 2025-07-18
 
 ### Added

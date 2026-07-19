@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/diamondBelema/ken/internal/progress"
+	"github.com/diamondBelema/ken/internal/study"
 	"github.com/diamondBelema/ken/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -26,7 +29,14 @@ var summariesCmd = &cobra.Command{
 			return fmt.Errorf("failed to load progress: %w", err)
 		}
 
-		m := tui.NewSummariesModel(prog, subject)
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
+		concepts, _ := study.LoadConcepts(subjectsDir, subject)
+
+		m := tui.NewSummariesModel(prog, concepts, subject)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)

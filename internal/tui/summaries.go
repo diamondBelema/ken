@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/render"
 )
@@ -24,12 +25,15 @@ const (
 
 type SummariesModel struct {
 	progress     *progress.Progress
+	concepts     []parser.Concept
 	subject      string
 	state        summariesState
 	summaries    []progress.Summary
 	summaryIDs   []string
+	isContent    []bool
 	selected     int
 	scrollTop    int
+	detailScroll int
 	viewWidth    int
 	viewHeight   int
 	titleInput   textinput.Model
@@ -37,7 +41,7 @@ type SummariesModel struct {
 	editID       string
 }
 
-func NewSummariesModel(prog *progress.Progress, subject string) SummariesModel {
+func NewSummariesModel(prog *progress.Progress, concepts []parser.Concept, subject string) SummariesModel {
 	ti := textinput.New()
 	ti.Placeholder = "Summary title..."
 	ti.Focus()
@@ -51,6 +55,7 @@ func NewSummariesModel(prog *progress.Progress, subject string) SummariesModel {
 
 	return SummariesModel{
 		progress:     prog,
+		concepts:     concepts,
 		subject:      subject,
 		state:        summariesList,
 		titleInput:   ti,
@@ -118,11 +123,11 @@ func (m SummariesModel) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			return m.startNew(), nil
 		case "e":
-			if len(m.summaries) > 0 {
+			if len(m.summaries) > 0 && !m.isContent[m.selected] {
 				return m.startEdit(), nil
 			}
 		case "x":
-			if len(m.summaries) > 0 {
+			if len(m.summaries) > 0 && !m.isContent[m.selected] {
 				m.state = summariesDeleteConfirm
 				return m, nil
 			}
@@ -138,6 +143,17 @@ func (m SummariesModel) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "q":
 			m.state = summariesList
+			m.detailScroll = 0
+		case "j", "down":
+			m.detailScroll++
+		case "k", "up":
+			if m.detailScroll > 0 {
+				m.detailScroll--
+			}
+		case "g":
+			m.detailScroll = 0
+		case "G":
+			m.detailScroll = 999999
 		case "e":
 			return m.startEdit(), nil
 		case "x":
@@ -285,21 +301,41 @@ func (m *SummariesModel) startEdit() SummariesModel {
 func (m *SummariesModel) refreshSummaries() {
 	m.summaries = nil
 	m.summaryIDs = nil
+	m.isContent = nil
 
+	// Load content summaries from parsed concepts
+	for _, c := range m.concepts {
+		if c.Summary != "" {
+			m.summaries = append(m.summaries, progress.Summary{
+				Title:   c.Name,
+				Content: c.Summary,
+			})
+			m.summaryIDs = append(m.summaryIDs, "content-"+c.ID)
+			m.isContent = append(m.isContent, true)
+		}
+	}
+
+	// Load user-created summaries linked to this subject
 	for id, summary := range m.progress.Summaries {
 		if summary.LinkedTo != nil && summary.LinkedTo.Type == "subject" && summary.LinkedTo.ID == m.subject {
 			m.summaries = append(m.summaries, summary)
 			m.summaryIDs = append(m.summaryIDs, id)
+			m.isContent = append(m.isContent, false)
 		}
 	}
 
-	sort.Slice(m.summaries, func(i, j int) bool {
+	sort.SliceStable(m.summaries, func(i, j int) bool {
+		ci := m.isContent[i]
+		cj := m.isContent[j]
+		if ci != cj {
+			return ci // content summaries first
+		}
 		return m.summaries[i].CreatedAt > m.summaries[j].CreatedAt
 	})
 }
 
 func (m *SummariesModel) clampScroll() {
-	visible := m.viewHeight - 6
+	visible := m.viewHeight - 3
 	if visible < 1 {
 		visible = 10
 	}
@@ -331,7 +367,7 @@ func (m SummariesModel) View() string {
 				Render("No summaries found.\n\n  Press 's' to create one.")
 			b.WriteString(empty)
 		} else {
-			visible := m.viewHeight - 6
+			visible := m.viewHeight - 3
 			if visible < 1 {
 				visible = 10
 			}
@@ -341,11 +377,15 @@ func (m SummariesModel) View() string {
 			}
 
 			for i := m.scrollTop; i < end; i++ {
+				label := m.summaries[i].Title
+				if m.isContent[i] {
+					label = label + "  " + lipgloss.NewStyle().Foreground(colorMuted).Italic(true).Render("[content]")
+				}
 				if i == m.selected {
-					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s", m.summaries[i].Title)))
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s", label)))
 					b.WriteString("\n")
 				} else {
-					b.WriteString(fmt.Sprintf("  %s\n", listItemStyle.Render(m.summaries[i].Title)))
+					b.WriteString(fmt.Sprintf("  %s\n", listItemStyle.Render(label)))
 				}
 			}
 		}
@@ -357,9 +397,45 @@ func (m SummariesModel) View() string {
 			summary := m.summaries[m.selected]
 			b.WriteString(subtitleStyle.Render(summary.Title))
 			b.WriteString("\n")
-			b.WriteString(render.RenderMarkdown(summary.Content, m.viewWidth-4))
-			b.WriteString("\n\n")
-			b.WriteString(helpStyle.Render("  e edit  ·  x delete  ·  esc back"))
+			if m.isContent[m.selected] {
+				b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Italic(true).Render("  Content Summary"))
+				b.WriteString("\n")
+			}
+
+			rendered := render.RenderMarkdown(summary.Content, m.viewWidth-4)
+			lines := strings.Split(rendered, "\n")
+
+			// Header=1(title) + 1(blank) + maybe 1(content label) = 2 or 3, footer=1
+			headerH := 3
+			if !m.isContent[m.selected] {
+				headerH = 2
+			}
+			visible := m.viewHeight - headerH - 1
+			if visible < 1 {
+				visible = 10
+			}
+
+			// Clamp scroll
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.detailScroll > maxScroll {
+				m.detailScroll = maxScroll
+			}
+
+			start := m.detailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  esc back"))
 		}
 
 	case summariesNew:

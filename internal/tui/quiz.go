@@ -24,20 +24,24 @@ const (
 )
 
 type QuizModel struct {
-	session      *study.QuizSession
-	progress     *progress.Progress
-	state        quizState
-	selected     int
-	correct      bool
-	message      string
-	noteInput    textinput.Model
-	noteLinkedTo *progress.EntityRef
-	noteCycleIdx int
-	width        int
-	height       int
+	session            *study.QuizSession
+	progress           *progress.Progress
+	concepts           []parser.Concept
+	conceptMap         map[string]parser.Concept
+	state              quizState
+	selected           int
+	correct            bool
+	message            string
+	noteInput          textinput.Model
+	noteLinkedTo       *progress.EntityRef
+	noteCycleIdx       int
+	width              int
+	height             int
+	showConceptDetail  bool
+	conceptDetailScroll int
 }
 
-func NewQuizModel(sess *study.QuizSession, prog *progress.Progress) QuizModel {
+func NewQuizModel(sess *study.QuizSession, prog *progress.Progress, concepts []parser.Concept) QuizModel {
 	ti := textinput.New()
 	ti.Placeholder = "Type a note..."
 	ti.Focus()
@@ -47,6 +51,8 @@ func NewQuizModel(sess *study.QuizSession, prog *progress.Progress) QuizModel {
 	return QuizModel{
 		session:   sess,
 		progress:  prog,
+		concepts:  concepts,
+		conceptMap: buildConceptMap(concepts),
 		state:     quizAnswering,
 		noteInput: ti,
 	}
@@ -69,6 +75,36 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.state {
 		case quizAnswering:
 			q := m.session.Current()
+			if m.showConceptDetail {
+				switch msg.String() {
+				case "c":
+					m.showConceptDetail = false
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "j", "down":
+					m.conceptDetailScroll++
+					return m, nil
+				case "k", "up":
+					if m.conceptDetailScroll > 0 {
+						m.conceptDetailScroll--
+					}
+					return m, nil
+				case "g":
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "G":
+					m.conceptDetailScroll = 999999
+					return m, nil
+				}
+			}
+			switch msg.String() {
+			case "n":
+				return m.startNoteInput(), nil
+			case "c":
+				m.showConceptDetail = true
+				m.conceptDetailScroll = 0
+				return m, nil
+			}
 			switch q.Type {
 			case "mcq":
 				if idx, err := strconv.Atoi(msg.String()); err == nil && idx >= 1 && idx <= len(q.Options) {
@@ -109,8 +145,32 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case quizFeedback:
+			if m.showConceptDetail {
+				switch msg.String() {
+				case "c":
+					m.showConceptDetail = false
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "j", "down":
+					m.conceptDetailScroll++
+					return m, nil
+				case "k", "up":
+					if m.conceptDetailScroll > 0 {
+						m.conceptDetailScroll--
+					}
+					return m, nil
+				case "g":
+					m.conceptDetailScroll = 0
+					return m, nil
+				case "G":
+					m.conceptDetailScroll = 999999
+					return m, nil
+				}
+			}
 			switch msg.String() {
 			case "enter", "space":
+				m.showConceptDetail = false
+				m.conceptDetailScroll = 0
 				if m.session.Advance() {
 					m.state = quizAnswering
 					m.message = ""
@@ -120,6 +180,10 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "n":
 				return m.startNoteInput(), nil
+			case "c":
+				m.showConceptDetail = true
+				m.conceptDetailScroll = 0
+				return m, nil
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -303,64 +367,120 @@ func (m QuizModel) View() string {
 		q := m.session.Current()
 		cur, total := m.session.Progress()
 
-		progressBar := m.renderProgressBar(cur, total)
+		progressBar := renderProgressBar(cur, total)
 		b.WriteString("  ")
 		b.WriteString(progressBar)
 		b.WriteString("\n\n")
 
-		questionBox := lipgloss.NewStyle().
-			Width(max(m.width-8, 20)).
-			Render(frontStyle.Render(q.Question))
-
-		b.WriteString(cardStyle.Render(questionBox))
-		b.WriteString("\n")
-
-		switch q.Type {
-		case "mcq":
-			for i, opt := range q.Options {
-				num := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true).Render(fmt.Sprintf("%d", i+1))
-				b.WriteString(fmt.Sprintf("  %s  %s\n", num, opt))
+		if m.showConceptDetail {
+			concept := lookupConcept(m.conceptMap, q.ConceptID)
+			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width)
+			headerH := 3
+			footerH := 1
+			visible := m.height - headerH - footerH
+			if visible < 1 {
+				visible = 10
 			}
-		case "true_false":
-			b.WriteString("  t  true\n")
-			b.WriteString("  f  false\n")
-		case "fill_blank":
-			input := lipgloss.NewStyle().
-				Foreground(colorTextBright).
-				Render(m.message + "█")
-			b.WriteString(fmt.Sprintf("  Your answer: %s\n", input))
-			b.WriteString(helpStyle.Render("  enter submit  ·  backspace delete"))
-		}
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.conceptDetailScroll > maxScroll {
+				m.conceptDetailScroll = maxScroll
+			}
+			start := m.conceptDetailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  c close  ·  q quit"))
+		} else {
+			questionBox := lipgloss.NewStyle().
+				Width(max(m.width-8, 20)).
+				Render(frontStyle.Render(q.Question))
 
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  q quit"))
+			b.WriteString(cardStyle.Render(questionBox))
+			b.WriteString("\n")
+
+			switch q.Type {
+			case "mcq":
+				for i, opt := range q.Options {
+					num := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true).Render(fmt.Sprintf("%d", i+1))
+					b.WriteString(fmt.Sprintf("  %s  %s\n", num, opt))
+				}
+			case "true_false":
+				b.WriteString("  t  true\n")
+				b.WriteString("  f  false\n")
+			case "fill_blank":
+				input := lipgloss.NewStyle().
+					Foreground(colorTextBright).
+					Render(m.message + "█")
+				b.WriteString(fmt.Sprintf("  Your answer: %s\n", input))
+				b.WriteString(helpStyle.Render("  enter submit  ·  backspace delete"))
+			}
+
+			b.WriteString("\n")
+			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  q quit"))
+		}
 
 	case quizFeedback:
 		q := m.session.Current()
 
-		if m.correct {
-			b.WriteString("  ")
-			b.WriteString(finishedStyle.Render("Correct"))
+		if m.showConceptDetail {
+			concept := lookupConcept(m.conceptMap, q.ConceptID)
+			lines := renderConceptDetail(concept, m.progress, q.ConceptID, m.width)
+			headerH := 3
+			footerH := 1
+			visible := m.height - headerH - footerH
+			if visible < 1 {
+				visible = 10
+			}
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.conceptDetailScroll > maxScroll {
+				m.conceptDetailScroll = maxScroll
+			}
+			start := m.conceptDetailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  c close  ·  enter continue  ·  q quit"))
 		} else {
-			b.WriteString("  ")
-			b.WriteString(lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Incorrect"))
+			if m.correct {
+				b.WriteString("  ")
+				b.WriteString(finishedStyle.Render("Correct"))
+			} else {
+				b.WriteString("  ")
+				b.WriteString(lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Incorrect"))
+				b.WriteString("\n")
+				b.WriteString(fmt.Sprintf("  %s %s\n",
+					lipgloss.NewStyle().Foreground(colorMuted).Render("correct answer:"),
+					formatAnswer(q)))
+			}
 			b.WriteString("\n")
-			b.WriteString(fmt.Sprintf("  %s %s\n",
-				lipgloss.NewStyle().Foreground(colorMuted).Render("correct answer:"),
-				formatAnswer(q)))
-		}
-		b.WriteString("\n")
 
-		if q.Explanation != "" {
-			explainBox := lipgloss.NewStyle().
-				Width(max(m.width-8, 20)).
-				Render(notesStyle.Render(q.Explanation))
-			b.WriteString("\n")
-			b.WriteString(cardStyle.Render(explainBox))
-		}
+			if q.Explanation != "" {
+				explainBox := lipgloss.NewStyle().
+					Width(max(m.width-8, 20)).
+					Render(notesStyle.Render(q.Explanation))
+				b.WriteString("\n")
+				b.WriteString(cardStyle.Render(explainBox))
+			}
 
-		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("  n note  ·  enter continue  ·  q quit"))
+			b.WriteString("\n\n")
+			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  enter continue  ·  q quit"))
+		}
 
 	case quizNoteInput:
 		q := m.session.Current()
@@ -411,23 +531,4 @@ func (m QuizModel) View() string {
 	}
 
 	return b.String()
-}
-
-func (m QuizModel) renderProgressBar(current, total int) string {
-	barWidth := 20
-	filled := 0
-	if total > 0 {
-		filled = (current * barWidth) / total
-	}
-
-	barFilled := strings.Repeat("━", filled)
-	barEmpty := strings.Repeat("─", barWidth-filled)
-
-	filledStyle := lipgloss.NewStyle().Foreground(colorPrimary)
-	emptyStyle := lipgloss.NewStyle().Foreground(colorMuted)
-
-	result := filledStyle.Render(barFilled) + emptyStyle.Render(barEmpty)
-	result += fmt.Sprintf(" %d/%d", current, total)
-
-	return result
 }

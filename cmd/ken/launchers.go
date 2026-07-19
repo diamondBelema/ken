@@ -39,7 +39,7 @@ func runFlashcards(subject string) error {
 		return err
 	}
 
-	m := tui.NewFlashcardModel(sess, prog)
+	m := tui.NewFlashcardModel(sess, prog, concepts)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)
@@ -78,7 +78,7 @@ func runQuiz(subject string) error {
 		return err
 	}
 
-	m := tui.NewQuizModel(sess, prog)
+	m := tui.NewQuizModel(sess, prog, concepts)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)
@@ -122,7 +122,11 @@ func runSummaries(subject string) error {
 		return fmt.Errorf("failed to load progress: %w", err)
 	}
 
-	m := tui.NewSummariesModel(prog, subject)
+	home, _ := os.UserHomeDir()
+	subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
+	concepts, _ := study.LoadConcepts(subjectsDir, subject)
+
+	m := tui.NewSummariesModel(prog, concepts, subject)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)

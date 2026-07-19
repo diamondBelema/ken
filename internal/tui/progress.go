@@ -13,6 +13,7 @@ import (
 	"github.com/diamondBelema/ken/internal/discovery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
+	"github.com/diamondBelema/ken/internal/render"
 	"github.com/diamondBelema/ken/internal/study"
 )
 
@@ -21,6 +22,7 @@ type progressViewState int
 const (
 	progressList progressViewState = iota
 	progressDiagramView
+	progressDetail
 	progressLinkOpen
 )
 
@@ -35,8 +37,12 @@ type ProgressModel struct {
 	viewState      progressViewState
 	selected       int
 	scrollTop      int
+	cachedItems    []progressItem
 	diagramContent string
 	diagramConcept string
+	detailName     string
+	detailContent  string
+	detailScroll   int
 }
 
 type progressLoadedMsg struct {
@@ -83,6 +89,7 @@ func (m ProgressModel) Init() tea.Cmd {
 			concepts, err := study.LoadConcepts(subjectsDir, s.Name)
 			if err == nil {
 				conceptData[s.Name] = concepts
+				progress.InitConcepts(prog, concepts)
 			}
 		}
 
@@ -97,6 +104,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.subjects = msg.subjects
 		m.progData = msg.progData
 		m.conceptData = msg.conceptData
+		m.cachedItems = m.collectItems()
 	case progressErrMsg:
 		m.err = msg.err
 	case tea.WindowSizeMsg:
@@ -107,6 +115,27 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "q" || msg.String() == "esc" {
 				m.viewState = progressList
 				return m, nil
+			}
+			return m, nil
+		}
+
+		if m.viewState == progressDetail {
+			switch msg.String() {
+			case "q", "esc":
+				m.viewState = progressList
+				return m, nil
+			case "j", "down":
+				m.detailScroll++
+				m.clampDetailScroll()
+			case "k", "up":
+				if m.detailScroll > 0 {
+					m.detailScroll--
+				}
+			case "g":
+				m.detailScroll = 0
+			case "G":
+				m.detailScroll = 999999
+				m.clampDetailScroll()
 			}
 			return m, nil
 		}
@@ -152,6 +181,16 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if item, ok := m.selectedItem(items); ok && item.linkURL != "" {
 				exec.Command("xdg-open", item.linkURL).Start()
 			}
+		case "enter", " ":
+			if item, ok := m.selectedItem(items); ok && item.fullDesc != "" {
+				m.detailName = item.id
+				m.detailContent = item.fullDesc
+				if item.summary != "" {
+					m.detailContent += "\n\n---\n\n" + item.summary
+				}
+				m.detailScroll = 0
+				m.viewState = progressDetail
+			}
 		}
 	}
 	return m, nil
@@ -162,6 +201,7 @@ type progressItem struct {
 	status        string
 	statusColor   lipgloss.Style
 	desc          string
+	fullDesc      string
 	summary       string
 	userSummaries int
 	noteCount     int
@@ -208,14 +248,15 @@ func (m ProgressModel) collectItems() []progressItem {
 				}
 			}
 
-			for _, c := range concepts {
-				if c.ID == id {
-					if c.Description != "" {
-						item.desc = runeSafeTruncate(c.Description, 80)
-					}
-					if c.Summary != "" {
-						item.summary = runeSafeTruncate(c.Summary, 80)
-					}
+		for _, c := range concepts {
+			if c.ID == id {
+				if c.Description != "" {
+					item.desc = runeTruncate(c.Description, 80)
+					item.fullDesc = c.Description
+				}
+				if c.Summary != "" {
+					item.summary = runeTruncate(c.Summary, 80)
+				}
 					item.userSummaries = len(prog.SummariesForConcept(id))
 					item.noteCount = len(prog.NotesForConcept(id))
 					item.diagramCount = len(c.Diagrams)
@@ -244,15 +285,61 @@ func (m ProgressModel) selectedItem(items []progressItem) (progressItem, bool) {
 }
 
 func (m *ProgressModel) clampScroll() {
-	visible := m.viewHeight - 6
-	if visible < 1 {
-		visible = 10
+	items := m.cachedItems
+	if len(items) == 0 {
+		return
 	}
+
+	// Header=4 (title+margin+2 newlines), separator=1, footer=1 → 6 lines overhead
+	available := m.viewHeight - 6
+	if available < 1 {
+		available = 10
+	}
+
+	// Count how many items actually fit from scrollTop
+	linesUsed := 0
+	visibleCount := 0
+	for i := m.scrollTop; i < len(items) && linesUsed < available; i++ {
+		linesUsed++ // item line
+		if items[i].desc != "" {
+			linesUsed++ // description line
+		}
+		if items[i].summary != "" {
+			linesUsed++ // summary line
+		}
+		visibleCount++
+	}
+	if visibleCount < 1 {
+		visibleCount = 1
+	}
+
 	if m.selected < m.scrollTop {
 		m.scrollTop = m.selected
 	}
-	if m.selected >= m.scrollTop+visible {
-		m.scrollTop = m.selected - visible + 1
+	if m.selected >= m.scrollTop+visibleCount {
+		m.scrollTop = m.selected - visibleCount + 1
+	}
+	if m.scrollTop < 0 {
+		m.scrollTop = 0
+	}
+}
+
+func (m *ProgressModel) clampDetailScroll() {
+	rendered := render.RenderMarkdown(m.detailContent, m.viewWidth-4)
+	lines := strings.Split(rendered, "\n")
+
+	// Header = title(1) + blank(1) + separator(1) = 3, footer = 1
+	visible := m.viewHeight - 4
+	if visible < 1 {
+		visible = 10
+	}
+
+	maxScroll := len(lines) - visible
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.detailScroll > maxScroll {
+		m.detailScroll = maxScroll
 	}
 }
 
@@ -283,6 +370,43 @@ func (m ProgressModel) View() string {
 		return b.String()
 	}
 
+	if m.viewState == progressDetail {
+		b.WriteString(subtitleStyle.Render(fmt.Sprintf("  %s", m.detailName)))
+		b.WriteString("\n\n")
+
+		rendered := render.RenderMarkdown(m.detailContent, m.viewWidth-4)
+		lines := strings.Split(rendered, "\n")
+
+		visible := m.viewHeight - 4
+		if visible < 1 {
+			visible = 10
+		}
+
+		maxScroll := len(lines) - visible
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if m.detailScroll > maxScroll {
+			m.detailScroll = maxScroll
+		}
+
+		start := m.detailScroll
+		end := start + visible
+		if end > len(lines) {
+			end = len(lines)
+		}
+
+		for _, line := range lines[start:end] {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+
+		b.WriteString(strings.Repeat("─", m.viewWidth))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  q/esc back"))
+		return b.String()
+	}
+
 	if len(m.subjects) == 0 {
 		empty := lipgloss.NewStyle().
 			Foreground(colorMuted).
@@ -294,10 +418,27 @@ func (m ProgressModel) View() string {
 		return b.String()
 	}
 
-	items := m.collectItems()
-	visible := m.viewHeight - 6
-	if visible < 1 {
-		visible = 10
+	items := m.cachedItems
+	available := m.viewHeight - 6
+	if available < 1 {
+		available = 10
+	}
+
+	// Count how many items actually fit from scrollTop
+	linesUsed := 0
+	visibleCount := 0
+	for i := m.scrollTop; i < len(items) && linesUsed < available; i++ {
+		linesUsed++ // item line
+		if items[i].desc != "" {
+			linesUsed++ // description line
+		}
+		if items[i].summary != "" {
+			linesUsed++ // summary line
+		}
+		visibleCount++
+	}
+	if visibleCount < 1 {
+		visibleCount = 1
 	}
 
 	if len(items) == 0 {
@@ -307,7 +448,7 @@ func (m ProgressModel) View() string {
 		return b.String()
 	}
 
-	end := m.scrollTop + visible
+	end := m.scrollTop + visibleCount
 	if end > len(items) {
 		end = len(items)
 	}
@@ -316,31 +457,28 @@ func (m ProgressModel) View() string {
 		item := items[i]
 		if i == m.selected {
 			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", item.id, item.status)))
+			b.WriteString("\n")
 		} else {
 			b.WriteString(fmt.Sprintf("  %s  %s\n", lipgloss.NewStyle().Foreground(colorTextBright).Bold(true).Render(item.id), item.statusColor.Render(item.status)))
 		}
 		if item.desc != "" {
 			b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render(item.desc)))
 		}
+		if item.summary != "" {
+			b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Italic(true).Render(item.summary)))
+		}
 	}
 
 	b.WriteString(strings.Repeat("─", m.viewWidth))
 	b.WriteString("\n")
 
-	if len(items) > visible {
-		b.WriteString(helpStyle.Render(fmt.Sprintf("  %d-%d of %d  ·  j/k navigate  ·  v diagram  ·  d svg  ·  l link  ·  q quit", m.scrollTop+1, end, len(items))))
+	if len(items) > visibleCount {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  %d-%d of %d  ·  j/k navigate  ·  enter view  ·  v diagram  ·  d svg  ·  l link  ·  q quit", m.scrollTop+1, end, len(items))))
 	} else {
-		b.WriteString(helpStyle.Render("  j/k navigate  ·  v diagram  ·  d svg  ·  l link  ·  q quit"))
+		b.WriteString(helpStyle.Render("  j/k navigate  ·  enter view  ·  v diagram  ·  d svg  ·  l link  ·  q quit"))
 	}
 
 	return b.String()
 }
 
-func runeSafeTruncate(s string, max int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	runes := []rune(s)
-	if len(runes) > max {
-		return string(runes[:max]) + "..."
-	}
-	return s
-}
+

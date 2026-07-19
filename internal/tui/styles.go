@@ -9,7 +9,7 @@ var (
 	colorSuccess    = lipgloss.Color("112")
 	colorWarning    = lipgloss.Color("220")
 	colorDanger     = lipgloss.Color("196")
-	colorMuted      = lipgloss.Color("243")
+	colorMuted      = lipgloss.Color("247")
 	colorText       = lipgloss.Color("252")
 	colorTextBright = lipgloss.Color("230")
 	colorBorder     = lipgloss.Color("62")
@@ -53,7 +53,7 @@ var (
 			MarginTop(1)
 
 	helpStyle = lipgloss.NewStyle().
-			Foreground(colorSecondary).
+			Foreground(lipgloss.Color("249")).
 			MarginTop(1)
 
 	gradeButtonStyle = lipgloss.NewStyle().
@@ -100,14 +100,12 @@ var (
 	dashCardStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorMuted).
-			Padding(0, 1).
-			MarginBottom(1)
+			Padding(0, 1)
 
 	dashCardSelectedStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorPrimary).
-				Padding(0, 1).
-				MarginBottom(1)
+				Padding(0, 1)
 
 	dashSubjectStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -159,8 +157,7 @@ var (
 				MarginBottom(1)
 
 	dashStatsRowStyle = lipgloss.NewStyle().
-				Foreground(colorMuted).
-				MarginBottom(1)
+				Foreground(colorMuted)
 
 	// Confidence distribution
 	dashDistWeakStyle  = lipgloss.NewStyle().Foreground(colorDanger)
@@ -170,4 +167,26 @@ var (
 	// Confidence bar
 	dashConfBarFilled = lipgloss.NewStyle().Foreground(colorSuccess)
 	dashConfBarEmpty  = lipgloss.NewStyle().Foreground(colorMuted)
+
+	// Activity panel
+	dashPanelHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorPrimary)
+
+	dashPanelSubjectStyle = lipgloss.NewStyle().
+				Foreground(colorTextBright).
+				Bold(true)
+
+	dashPanelItemStyle = lipgloss.NewStyle().
+				Foreground(colorText)
+
+	dashPanelTimeStyle = lipgloss.NewStyle().
+				Foreground(colorMuted)
+
+	dashPanelEmptyStyle = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Italic(true)
+
+	dashSeparatorStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240"))
 )

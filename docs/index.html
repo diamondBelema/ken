@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#content">Skip to content</a>
 
   <nav class="nav" aria-label="Primary">
     <div class="nav__inner">
@@ -53,38 +54,81 @@
       </div>
 
       <div class="hero-terminal">
-        <div class="hero-terminal__bar">
+        <div class="hero-terminal__bar" aria-hidden="true">
           <span class="hero-terminal__dot"></span>
           <span class="hero-terminal__dot"></span>
           <span class="hero-terminal__dot"></span>
           <span class="hero-terminal__label">ken</span>
         </div>
         <div class="hero-terminal__body">
-          <div class="hero-terminal__fallback">
-            <img src="./screenshot.png" alt="ken dashboard" width="800" height="400" loading="eager">
+          <div class="demo" role="img" aria-label="ken dashboard showing three subjects — anatomy, biochemistry, and physiology — each at 50% confidence, with a mastery breakdown of 1 weak, 309 developing, and 0 strong concepts out of 310 total">
+            <div class="demo__prompt" aria-hidden="true">
+              <span class="demo__prompt-sign">$</span><span id="demo-typed"></span><span class="demo__cursor" id="demo-cursor"></span>
+            </div>
+            <div class="demo__dashboard" id="demo-dashboard" aria-hidden="true">
+              <div class="demo__header">
+                <strong>ken</strong><span>terminal study harness</span>
+              </div>
+              <div class="demo__meter-row">
+                <div class="demo__meter">
+                  <span class="demo__dim">Weak</span>
+                  <span class="demo__track"><span class="demo__fill demo__fill--weak"></span></span>
+                  <span class="demo__count">1</span>
+                </div>
+                <div class="demo__meter">
+                  <span class="demo__dim">Developing</span>
+                  <span class="demo__track"><span class="demo__fill demo__fill--developing"></span></span>
+                  <span class="demo__count">309</span>
+                </div>
+                <div class="demo__meter">
+                  <span class="demo__dim">Strong</span>
+                  <span class="demo__track"><span class="demo__fill demo__fill--strong"></span></span>
+                  <span class="demo__count">0</span>
+                </div>
+                <span class="demo__total">310 concepts</span>
+              </div>
+              <div class="demo__grid">
+                <div class="demo__card demo__card--active">
+                  <div><span class="demo__card-title">anatomy</span> <span class="demo__due">252 due</span> <span class="demo__dim">2h ago</span></div>
+                  <div><span class="demo__pct">50%</span> <span class="demo__dim">170·341·200</span></div>
+                  <div class="demo__dim">2 notes</div>
+                </div>
+                <div class="demo__card">
+                  <div><span class="demo__card-title">biochemistry</span> <span class="demo__due">55 due</span> <span class="demo__dim">3h ago</span></div>
+                  <div><span class="demo__pct">50%</span> <span class="demo__dim">56·99·43</span></div>
+                  <div class="demo__dim">0 notes</div>
+                </div>
+                <div class="demo__card">
+                  <div><span class="demo__card-title">physiology</span> <span class="demo__due">83 due</span> <span class="demo__dim">3h ago</span></div>
+                  <div><span class="demo__pct">50%</span> <span class="demo__dim">84·176·66</span></div>
+                  <div class="demo__dim">0 notes</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </header>
 
+  <main id="content">
   <section>
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <div class="section-label">How it works</div>
         <h2 class="section-heading">Content to study session</h2>
         <p class="section-intro">Drop Markdown files into a folder. ken reads them, tracks your mastery, and never writes back.</p>
       </div>
       <ol class="steps">
-        <li class="steps__item">
+        <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
           <p class="steps__text"><strong>Write Markdown with YAML frontmatter.</strong> Concepts, flashcards, quizzes — plain .md files in a folder structure. No editor required, no build step.</p>
         </li>
-        <li class="steps__item">
+        <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
           <p class="steps__text"><strong>ken reads the folder, never writes to it.</strong> Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your git repo stays clean.</p>
         </li>
-        <li class="steps__item">
+        <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
           <p class="steps__text"><strong>Confidence updates in your state dir.</strong> Every interaction feeds a Bayesian model with time-decay. Mastery lives on concepts, not cards.</p>
         </li>
@@ -94,40 +138,40 @@
 
   <section class="section-raised">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <div class="section-label">Features</div>
         <h2 class="section-heading">Built for focused learning</h2>
       </div>
       <div class="features">
-        <article class="feature-card">
+        <article class="feature-card reveal">
           <h3 class="feature-card__title">Bayesian confidence</h3>
           <p class="feature-card__body">Tracks what you know, not how many cards you flipped. Concepts resurface based on time-decay and your response history.</p>
         </article>
-        <article class="feature-card">
+        <article class="feature-card reveal">
           <h3 class="feature-card__title">Agent-friendly content</h3>
           <p class="feature-card__body">Plain Markdown + YAML in a folder. Any AI agent can generate it. ken only cares that IDs are unique.</p>
         </article>
-        <article class="feature-card">
+        <article class="feature-card reveal">
           <h3 class="feature-card__title">Content and state separated</h3>
           <p class="feature-card__body">Course materials in <code>~/Documents/learn/subjects/</code>. Progress in <code>~/.local/share/ken/</code>. Your repo stays clean.</p>
         </article>
       </div>
 
-      <div class="stats">
+      <div class="stats reveal">
         <div class="stat">
-          <div class="stat__value">310</div>
+          <div class="stat__value" data-count-to="310">0</div>
           <div class="stat__label">Concepts</div>
         </div>
         <div class="stat">
-          <div class="stat__value">616</div>
+          <div class="stat__value" data-count-to="616">0</div>
           <div class="stat__label">Flashcards</div>
         </div>
         <div class="stat">
-          <div class="stat__value">309</div>
+          <div class="stat__value" data-count-to="309">0</div>
           <div class="stat__label">Quiz questions</div>
         </div>
         <div class="stat">
-          <div class="stat__value">5</div>
+          <div class="stat__value" data-count-to="5">0</div>
           <div class="stat__label">Grading levels</div>
         </div>
       </div>
@@ -136,11 +180,11 @@
 
   <section>
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal">
         <div class="section-label">Install</div>
         <h2 class="section-heading">Get started</h2>
       </div>
-      <div class="install-block">
+      <div class="install-block reveal">
         <div class="install-block__label">From source</div>
         <pre><code>git clone https://github.com/diamondBelema/ken.git
 cd ken
@@ -150,6 +194,7 @@ mv ken ~/.local/bin/</code></pre>
       </div>
     </div>
   </section>
+  </main>
 
   <footer class="footer">
     <div class="footer__inner">
@@ -174,6 +219,91 @@ mv ken ~/.local/bin/</code></pre>
           setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         });
       });
+    })();
+
+    (function() {
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // Hero terminal: type "ken", then reveal the dashboard beneath it
+      var typedEl = document.getElementById('demo-typed');
+      var cursorEl = document.getElementById('demo-cursor');
+      var dashEl = document.getElementById('demo-dashboard');
+      if (typedEl && dashEl) {
+        var word = ' ken';
+        if (reduceMotion) {
+          typedEl.textContent = word;
+          dashEl.classList.add('is-visible');
+        } else {
+          var i = 0;
+          (function typeNext() {
+            if (i <= word.length) {
+              typedEl.textContent = word.slice(0, i);
+              i++;
+              setTimeout(typeNext, 90);
+            } else {
+              if (cursorEl) cursorEl.classList.add('is-done');
+              setTimeout(function() { dashEl.classList.add('is-visible'); }, 150);
+            }
+          })();
+        }
+      }
+
+      // Scroll-triggered reveal for sections, cards, and steps
+      var revealEls = document.querySelectorAll('.reveal');
+      if (reduceMotion || !('IntersectionObserver' in window)) {
+        revealEls.forEach(function(el) { el.classList.add('is-visible'); });
+      } else {
+        var io = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.15 });
+        revealEls.forEach(function(el) { io.observe(el); });
+      }
+
+      // Count up stat values once visible
+      var statEls = document.querySelectorAll('[data-count-to]');
+      function animateCount(el) {
+        var target = parseInt(el.getAttribute('data-count-to'), 10) || 0;
+        if (reduceMotion) { el.textContent = target; return; }
+        var start = performance.now();
+        var duration = 900;
+        function step(now) {
+          var p = Math.min((now - start) / duration, 1);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased);
+          if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+      if (statEls.length) {
+        if (reduceMotion || !('IntersectionObserver' in window)) {
+          statEls.forEach(animateCount);
+        } else {
+          var statIo = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (entry.isIntersecting) {
+                animateCount(entry.target);
+                statIo.unobserve(entry.target);
+              }
+            });
+          }, { threshold: 0.4 });
+          statEls.forEach(function(el) { statIo.observe(el); });
+        }
+      }
+
+      // Nav gains a slightly stronger seam once scrolled
+      var nav = document.querySelector('.nav');
+      if (nav) {
+        var onScroll = function() {
+          nav.classList.toggle('is-scrolled', window.scrollY > 8);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+      }
     })();
   </script>
 

@@ -461,12 +461,3 @@ func (m NotesModel) View() string {
 
 	return b.String()
 }
-
-func truncate(s string, max int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	runes := []rune(s)
-	if len(runes) > max {
-		return string(runes[:max]) + "..."
-	}
-	return s
-}

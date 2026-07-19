@@ -309,7 +309,7 @@ func (m QuizModel) View() string {
 		b.WriteString("\n\n")
 
 		questionBox := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Render(frontStyle.Render(q.Question))
 
 		b.WriteString(cardStyle.Render(questionBox))
@@ -353,7 +353,7 @@ func (m QuizModel) View() string {
 
 		if q.Explanation != "" {
 			explainBox := lipgloss.NewStyle().
-				Width(m.width - 8).
+				Width(max(m.width-8, 20)).
 				Render(notesStyle.Render(q.Explanation))
 			b.WriteString("\n")
 			b.WriteString(cardStyle.Render(explainBox))
@@ -376,7 +376,7 @@ func (m QuizModel) View() string {
 		}
 
 		questionBox := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Render(frontStyle.Render(q.Question))
 
 		b.WriteString(cardStyle.Render(questionBox))
@@ -395,7 +395,7 @@ func (m QuizModel) View() string {
 		}
 
 		summary := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Align(lipgloss.Center).
 			Render(
 				finishedStyle.Render("Quiz Complete"),

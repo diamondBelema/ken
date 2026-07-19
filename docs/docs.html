@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#content">Skip to content</a>
 
   <nav class="nav" aria-label="Primary">
     <div class="nav__inner">
@@ -45,7 +46,7 @@
     </div>
   </header>
 
-  <main class="doc-content">
+  <main class="doc-content" id="content">
     <div class="container container--wide">
 
       <h2>Install</h2>
@@ -208,6 +209,18 @@ questions:
       </ul>
     </div>
   </footer>
+
+  <script>
+    (function() {
+      var nav = document.querySelector('.nav');
+      if (!nav) return;
+      var onScroll = function() {
+        nav.classList.toggle('is-scrolled', window.scrollY > 8);
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+  </script>
 
 </body>
 </html>

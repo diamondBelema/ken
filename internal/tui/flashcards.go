@@ -238,7 +238,7 @@ func (m FlashcardModel) View() string {
 		b.WriteString("\n\n")
 
 		cardContent := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Render(frontStyle.Render(card.Front))
 
 		b.WriteString(cardStyle.Render(cardContent))
@@ -255,7 +255,7 @@ func (m FlashcardModel) View() string {
 		b.WriteString("\n\n")
 
 		cardContent := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
 
 		b.WriteString(cardStyle.Render(cardContent))
@@ -291,7 +291,7 @@ func (m FlashcardModel) View() string {
 		}
 
 		cardContent := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Render(frontStyle.Render(card.Front) + "\n\n" + backStyle.Render(card.Back))
 
 		b.WriteString(cardStyle.Render(cardContent))
@@ -309,7 +309,7 @@ func (m FlashcardModel) View() string {
 		}
 
 		summary := lipgloss.NewStyle().
-			Width(m.width - 8).
+			Width(max(m.width-8, 20)).
 			Align(lipgloss.Center).
 			Render(
 				finishedStyle.Render("Session Complete"),

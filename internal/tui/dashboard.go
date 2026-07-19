@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,6 +30,8 @@ type DashboardResult struct {
 	Action  string
 }
 
+const minCardWidth = 28
+
 type DashboardModel struct {
 	subjects       []discovery.SubjectInfo
 	progData       map[string]*progress.Progress
@@ -36,8 +39,8 @@ type DashboardModel struct {
 	cardCounts     map[string]int
 	quizCounts     map[string]int
 	err            error
-	width          int
-	height         int
+	viewWidth      int
+	viewHeight     int
 	state          dashState
 	selected       int
 	scrollTop      int
@@ -131,8 +134,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case dashboardErrMsg:
 		m.err = msg.err
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.viewWidth = msg.Width
+		m.viewHeight = msg.Height
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case dashboardQuitMsg:
@@ -331,11 +334,12 @@ func (m DashboardModel) filteredSubjects() []discovery.SubjectInfo {
 
 func (m *DashboardModel) clampScroll() {
 	visible := m.visibleRows()
+	cols := m.columnCount()
 	if m.selected < m.scrollTop {
 		m.scrollTop = m.selected
 	}
-	if m.selected >= m.scrollTop+visible*m.columnCount() {
-		m.scrollTop = m.selected - visible*m.columnCount() + m.columnCount()
+	if m.selected >= m.scrollTop+visible*cols {
+		m.scrollTop = m.selected - visible*cols + cols
 	}
 	if m.scrollTop < 0 {
 		m.scrollTop = 0
@@ -343,25 +347,46 @@ func (m *DashboardModel) clampScroll() {
 }
 
 func (m DashboardModel) visibleRows() int {
-	if m.height == 0 {
+	if m.viewHeight == 0 {
 		return 4
 	}
-	available := m.height - 10
-	rows := available / 5
+	headerLines := 4
+	footerLines := 1
+	actionLines := 0
+	if m.state == dashActionRow {
+		actionLines = 1
+	}
+	activityMin := 3
+	available := m.viewHeight - headerLines - footerLines - actionLines - activityMin
+	if available < 1 {
+		available = 1
+	}
+	ch := m.cardHeight()
+	rows := available / ch
 	if rows < 1 {
 		rows = 1
 	}
 	return rows
 }
 
+func (m DashboardModel) cardHeight() int {
+	sample := m.renderSubjectCard(discovery.SubjectInfo{Name: "sample"}, false, 60)
+	h := lipgloss.Height(sample)
+	if h < 3 {
+		h = 5
+	}
+	return h
+}
+
 func (m DashboardModel) columnCount() int {
-	if m.width >= 120 {
-		return 3
+	cols := m.viewWidth / (minCardWidth + 2)
+	if cols > 3 {
+		cols = 3
 	}
-	if m.width >= 72 {
-		return 2
+	if cols < 1 {
+		cols = 1
 	}
-	return 1
+	return cols
 }
 
 func (m DashboardModel) View() string {
@@ -369,59 +394,79 @@ func (m DashboardModel) View() string {
 		return fmt.Sprintf("\n  Error: %v\n\n  Press q to exit.\n", m.err)
 	}
 
-	if m.width == 0 {
-		m.width = 80
+	if m.viewWidth == 0 {
+		m.viewWidth = 80
 	}
-	if m.height == 0 {
-		m.height = 24
+	if m.viewHeight == 0 {
+		m.viewHeight = 24
 	}
 
 	var b strings.Builder
+	linesUsed := 0
 
-	// Build content into a buffer to measure height
-	var content strings.Builder
-	content.WriteString(m.renderHeader())
-	content.WriteString("\n")
+	// Top margin
+	b.WriteString("\n")
+	linesUsed++
 
+	// Header
+	header := m.renderHeader()
+	b.WriteString(header)
+	linesUsed += lipgloss.Height(header)
+
+	// Filter row
 	if m.state == dashFiltering || m.filterText != "" {
 		filterLabel := dashFilterStyle.Render(" / ")
 		filterLine := filterLabel + m.filterInput.View()
-		content.WriteString(centerBlock(filterLine, m.width))
-		content.WriteString("\n")
+		b.WriteString(centerBlock(filterLine, m.viewWidth))
+		b.WriteString("\n")
+		linesUsed += 2
 	}
 
+	// Action row
+	if m.state == dashActionRow {
+		actionRow := m.renderActionRow()
+		b.WriteString(actionRow)
+		linesUsed += lipgloss.Height(actionRow)
+	}
+
+	// Grid
 	filtered := m.filteredSubjects()
 	if len(filtered) == 0 {
 		if m.filterText != "" {
-			content.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
-			content.WriteString("\n")
+			b.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
+			b.WriteString("\n")
+			linesUsed += 2
 		} else {
-			content.WriteString(m.renderEmptyState())
+			empty := m.renderEmptyState()
+			b.WriteString(empty)
+			linesUsed += lipgloss.Height(empty)
 		}
 	} else {
-		content.WriteString(m.renderGrid(filtered))
+		grid := m.renderGrid(filtered)
+		b.WriteString(grid)
+		linesUsed += lipgloss.Height(grid)
 	}
 
-	if m.state == dashActionRow && len(filtered) > 0 {
-		content.WriteString(m.renderActionRow())
-	}
-
-	content.WriteString("\n")
-	content.WriteString(centerBlock(m.renderHelpBar(), m.width))
-
-	// Vertically center: add top padding
-	contentLines := strings.Count(content.String(), "\n")
-	footerLines := 2
-	usedLines := contentLines + footerLines
-	emptyLines := m.height - usedLines
-	if emptyLines > 0 {
-		topPad := emptyLines / 2
-		for i := 0; i < topPad; i++ {
-			b.WriteString("\n")
+	// Activity panel — fill remaining space above footer
+	footerLines := 1
+	activityMax := m.viewHeight - linesUsed - footerLines
+	if activityMax > 0 {
+		panel := m.renderActivityPanel(activityMax)
+		if panel != "" {
+			b.WriteString(panel)
+			linesUsed += lipgloss.Height(panel)
 		}
 	}
 
-	b.WriteString(content.String())
+	// Pad to push footer to bottom
+	remaining := m.viewHeight - linesUsed - footerLines
+	for i := 0; i < remaining; i++ {
+		b.WriteString("\n")
+	}
+
+	// Footer — always on the last line
+	b.WriteString(centerBlock(m.renderHelpBar(), m.viewWidth))
+
 	return b.String()
 }
 
@@ -431,7 +476,7 @@ func (m DashboardModel) renderHeader() string {
 	title := dashHeaderStyle.Render("ken")
 	tagline := dashTaglineStyle.Render("terminal study harness")
 	headerLine := title + "  " + tagline
-	b.WriteString(centerBlock(headerLine, m.width))
+	b.WriteString(centerBlock(headerLine, m.viewWidth))
 	b.WriteString("\n")
 
 	weak, dev, strong, total := 0, 0, 0, 0
@@ -458,33 +503,51 @@ func (m DashboardModel) renderHeader() string {
 	}
 
 	if total > 0 {
-		// Scale bar to fit terminal width
-		// "Weak X NNN · Developing X NNN · Strong X NNN · N concepts" ≈ 80 chars of labels
-		availableForBars := m.width - 80
-		if availableForBars < 30 {
-			availableForBars = 30
-		}
-		barWidth := availableForBars / 3
-		if barWidth < 10 {
-			barWidth = 10
-		}
-		if barWidth > 40 {
-			barWidth = 40
-		}
+		// Measure plain label width
+		labelOnly := fmt.Sprintf("Weak %d  ·  Developing %d  ·  Strong %d  ·  %d concepts",
+			weak, dev, strong, total)
+		labelWidth := lipgloss.Width(labelOnly)
 
-		weakPct := weak * barWidth / total
-		devPct := dev * barWidth / total
-		strongPct := barWidth - weakPct - devPct
+		// Minimum space needed: label + 3 small bars (6 chars each) + separators
+		minBarWidth := 6
+		minTotalWidth := labelWidth + 3*minBarWidth + 12
 
-		distLine := fmt.Sprintf("Weak %s %d  ·  Developing %s %d  ·  Strong %s %d  ·  %d concepts",
-			dashDistWeakStyle.Render(strings.Repeat("█", weakPct)+strings.Repeat("░", barWidth-weakPct)),
-			weak,
-			dashDistDevStyle.Render(strings.Repeat("█", devPct)+strings.Repeat("░", barWidth-devPct)),
-			dev,
-			dashDistStrongStyle.Render(strings.Repeat("█", strongPct)+strings.Repeat("░", barWidth-strongPct)),
-			strong,
-			total)
-		b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.width))
+		if m.viewWidth < minTotalWidth {
+			// Too narrow for bars
+			distLine := fmt.Sprintf("Weak %d  ·  Developing %d  ·  Strong %d  ·  %d concepts",
+				weak, dev, strong, total)
+			b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.viewWidth))
+		} else {
+			availableForBars := m.viewWidth - labelWidth - 12
+			barWidth := availableForBars / 3
+			if barWidth < minBarWidth {
+				barWidth = minBarWidth
+			}
+			if barWidth > 18 {
+				barWidth = 18
+			}
+
+			weakPct := weak * barWidth / total
+			if weakPct > barWidth {
+				weakPct = barWidth
+			}
+			devPct := dev * barWidth / total
+			if devPct > barWidth {
+				devPct = barWidth
+			}
+			strongPct := barWidth - weakPct - devPct
+			if strongPct < 0 {
+				strongPct = 0
+			}
+
+			weakBar := dashDistWeakStyle.Render(strings.Repeat("█", weakPct) + strings.Repeat("░", barWidth-weakPct))
+			devBar := dashDistDevStyle.Render(strings.Repeat("█", devPct) + strings.Repeat("░", barWidth-devPct))
+			strongBar := dashDistStrongStyle.Render(strings.Repeat("█", strongPct) + strings.Repeat("░", barWidth-strongPct))
+
+			distLine := fmt.Sprintf("Weak %s %d  ·  Developing %s %d  ·  Strong %s %d  ·  %d concepts",
+				weakBar, weak, devBar, dev, strongBar, strong, total)
+			b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.viewWidth))
+		}
 	}
 
 	return b.String()
@@ -492,9 +555,10 @@ func (m DashboardModel) renderHeader() string {
 
 func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 	cols := m.columnCount()
-	colWidth := (m.width - 2*(cols-1)) / cols
-	if colWidth < 20 {
-		colWidth = 20
+	// FIX: simpler colWidth — let JoinHorizontal handle gaps naturally
+	colWidth := m.viewWidth / cols
+	if colWidth < minCardWidth {
+		colWidth = minCardWidth
 	}
 
 	visible := m.visibleRows()
@@ -518,11 +582,13 @@ func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 			end = len(filtered)
 		}
 		rowCards := filtered[i:end]
+
 		var rendered []string
 		for j, s := range rowCards {
-			selected := (i+j) == m.selected
+			selected := (i + j) == m.selected
 			rendered = append(rendered, m.renderSubjectCard(s, selected, colWidth))
 		}
+
 		if len(rendered) > 1 {
 			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, rendered...))
 		} else {
@@ -536,7 +602,8 @@ func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 		rows = append(rows, dashDetailStyle.Render(scrollInfo))
 	}
 
-	return strings.Join(rows, "\n") + "\n"
+	grid := strings.Join(rows, "\n")
+	return centerBlock(grid, m.viewWidth)
 }
 
 func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool, colWidth int) string {
@@ -550,11 +617,17 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 
 	due := m.dueCount(s.Name)
 
+	// FIX: account for border (2 chars) + padding (2 chars) = 4, plus some breathing room
+	innerWidth := colWidth - 6
+	if innerWidth < 10 {
+		innerWidth = 10
+	}
+
 	name := s.Name
 	if selected {
-		name = dashSubjectSelectedStyle.Render(s.Name)
+		name = dashSubjectSelectedStyle.Render(truncate(s.Name, innerWidth-12))
 	} else {
-		name = dashSubjectStyle.Render(s.Name)
+		name = dashSubjectStyle.Render(truncate(s.Name, innerWidth-12))
 	}
 
 	badge := ""
@@ -590,7 +663,7 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	default:
 		confStyle = dashDistStrongStyle
 	}
-	line2 := fmt.Sprintf("  %s  %d·%d·%d",
+	line2 := fmt.Sprintf("  %s  %dc·%df·%dq",
 		confStyle.Render(fmt.Sprintf("%.0f%%", avg)),
 		conceptCount,
 		m.cardCounts[s.Name],
@@ -599,19 +672,20 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	var lines []string
 	lines = append(lines, line1)
 	lines = append(lines, line2)
-	if noteCount > 0 {
-		lines = append(lines, "  "+dashDetailStyle.Render(fmt.Sprintf("%d notes", noteCount)))
-	}
+	lines = append(lines, "  "+dashDetailStyle.Render(fmt.Sprintf("%d notes", noteCount)))
 
 	content := strings.Join(lines, "\n")
 
+	// FIX: Use Width() without MarginBottom to prevent layout drift
 	style := dashCardStyle.
 		Width(colWidth - 4).
-		Padding(0, 1)
+		Padding(0, 1).
+		MarginBottom(0)
 	if selected {
 		style = dashCardSelectedStyle.
 			Width(colWidth - 4).
-			Padding(0, 1)
+			Padding(0, 1).
+			MarginBottom(0)
 	}
 
 	return style.Render(content)
@@ -619,7 +693,7 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 
 func (m DashboardModel) renderEmptyState() string {
 	boxWidth := 56
-	leftPad := (m.width - boxWidth) / 2
+	leftPad := (m.viewWidth - boxWidth) / 2
 	if leftPad < 0 {
 		leftPad = 0
 	}
@@ -633,8 +707,9 @@ func (m DashboardModel) renderEmptyState() string {
 			dashDetailStyle.Render("No subjects found.")+"\n\n"+
 				dashDetailStyle.Render("Add content to:")+"\n"+
 				"  ~/Documents/learn/subjects/\n\n"+
-				dashHintStyle.Render("Each subject needs concepts/, flashcards/,"),
-			dashHintStyle.Render("and quizzes/ folders with .md files."),
+				dashHintStyle.Render("Each subject needs:")+"\n"+
+				"  concepts/  flashcards/  quizzes/\n\n"+
+				dashDetailStyle.Render("See docs for format details."),
 		)
 
 	var b strings.Builder
@@ -663,6 +738,30 @@ func (m DashboardModel) dueCount(subject string) int {
 	return count
 }
 
+type activityEntry struct {
+	subject     string
+	conceptName string
+	confidence  float64
+	updatedAt   *int64
+}
+
+func formatRelativeTime(ts int64) string {
+	now := time.Now().Unix()
+	diff := now - ts
+	switch {
+	case diff < 60:
+		return "just now"
+	case diff < 3600:
+		return fmt.Sprintf("%dm ago", diff/60)
+	case diff < 86400:
+		return fmt.Sprintf("%dh ago", diff/3600)
+	case diff < 172800:
+		return "yesterday"
+	default:
+		return fmt.Sprintf("%dd ago", diff/86400)
+	}
+}
+
 func (m DashboardModel) lastStudiedText(subject string) string {
 	prog := m.progData[subject]
 	if prog == nil {
@@ -681,25 +780,7 @@ func (m DashboardModel) lastStudiedText(subject string) string {
 	if latest == nil {
 		return ""
 	}
-
-	now := time.Now().Unix()
-	diff := now - *latest
-
-	switch {
-	case diff < 60:
-		return "just now"
-	case diff < 3600:
-		mins := diff / 60
-		return fmt.Sprintf("%dm ago", mins)
-	case diff < 86400:
-		hours := diff / 3600
-		return fmt.Sprintf("%dh ago", hours)
-	case diff < 172800:
-		return "yesterday"
-	default:
-		days := diff / 86400
-		return fmt.Sprintf("%dd ago", days)
-	}
+	return formatRelativeTime(*latest)
 }
 
 func (m DashboardModel) renderActionRow() string {
@@ -717,7 +798,266 @@ func (m DashboardModel) renderActionRow() string {
 	}
 
 	row := dashActionBarStyle.Render("→ ") + strings.Join(items, "  ")
-	return centerBlock(row, m.width) + "\n"
+	return centerBlock(row, m.viewWidth) + "\n"
+}
+
+func (m DashboardModel) recentlyStudied() []activityEntry {
+	type candidate struct {
+		entry activityEntry
+		ts    int64
+	}
+	var candidates []candidate
+	for _, s := range m.subjects {
+		prog := m.progData[s.Name]
+		concepts := m.conceptData[s.Name]
+		if prog == nil {
+			continue
+		}
+		for _, c := range concepts {
+			cs, ok := prog.Concepts[c.ID]
+			if !ok || cs.LastReviewedAt == nil {
+				continue
+			}
+			candidates = append(candidates, candidate{
+				entry: activityEntry{
+					subject:     s.Name,
+					conceptName: c.Name,
+					confidence:  cs.Confidence,
+					updatedAt:   cs.LastReviewedAt,
+				},
+				ts: *cs.LastReviewedAt,
+			})
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].ts > candidates[j].ts
+	})
+	var result []activityEntry
+	for _, c := range candidates {
+		result = append(result, c.entry)
+	}
+	return result
+}
+
+func (m DashboardModel) comingUp() []activityEntry {
+	type candidate struct {
+		entry activityEntry
+		ts    int64
+	}
+	var reviewed []candidate
+	var never []activityEntry
+	now := time.Now().Unix()
+	for _, s := range m.subjects {
+		prog := m.progData[s.Name]
+		concepts := m.conceptData[s.Name]
+		if prog == nil {
+			continue
+		}
+		for _, c := range concepts {
+			cs, ok := prog.Concepts[c.ID]
+			if !ok {
+				continue
+			}
+			if cs.Confidence >= 0.7 {
+				continue
+			}
+			entry := activityEntry{
+				subject:     s.Name,
+				conceptName: c.Name,
+				confidence:  cs.Confidence,
+				updatedAt:   cs.LastReviewedAt,
+			}
+			if cs.LastReviewedAt == nil {
+				never = append(never, entry)
+			} else if (now - *cs.LastReviewedAt) > 86400 {
+				reviewed = append(reviewed, candidate{entry: entry, ts: *cs.LastReviewedAt})
+			}
+		}
+	}
+	sort.Slice(reviewed, func(i, j int) bool {
+		return reviewed[i].ts < reviewed[j].ts
+	})
+	var result []activityEntry
+	result = append(result, never...)
+	for _, r := range reviewed {
+		result = append(result, r.entry)
+	}
+	return result
+}
+
+func (m DashboardModel) renderActivityPanel(maxRows int) string {
+	if maxRows < 3 {
+		return ""
+	}
+
+	recent := m.recentlyStudied()
+	upcoming := m.comingUp()
+
+	// Separator line between grid and activity
+	sepWidth := m.viewWidth - 4
+	if sepWidth < 20 {
+		sepWidth = 20
+	}
+	separator := dashSeparatorStyle.Render(strings.Repeat("─", sepWidth))
+
+	sideBySide := m.viewWidth >= minCardWidth*2+4
+	if sideBySide {
+		return "\n" + separator + "\n" + m.renderActivitySideBySide(recent, upcoming, maxRows-1)
+	}
+	return "\n" + separator + "\n" + m.renderActivityStacked(recent, upcoming, maxRows-1)
+}
+
+func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntry, maxRows int) string {
+	halfW := (m.viewWidth - 4) / 2
+	innerW := halfW - 2
+	if innerW < 12 {
+		innerW = 12
+	}
+
+	available := maxRows - 2
+	if available < 1 {
+		available = 1
+	}
+
+	// Left column: recently studied
+	var leftLines []string
+	leftLines = append(leftLines, "  "+dashPanelHeaderStyle.Render("recently studied"))
+	if len(recent) == 0 {
+		leftLines = append(leftLines, "  "+dashPanelEmptyStyle.Render("nothing studied yet"))
+	} else {
+		for i, e := range recent {
+			if i >= available {
+				leftLines = append(leftLines, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
+				break
+			}
+			overhead := len(e.subject) + 2 + 1
+			maxName := innerW - overhead
+			if maxName < 8 {
+				maxName = 8
+			}
+			name := truncate(e.conceptName, maxName)
+			timeStr := ""
+			if e.updatedAt != nil {
+				timeStr = " " + dashPanelTimeStyle.Render(formatRelativeTime(*e.updatedAt))
+			}
+			leftLines = append(leftLines, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
+		}
+	}
+
+	// Right column: coming up
+	var rightLines []string
+	rightLines = append(rightLines, "  "+dashPanelHeaderStyle.Render("coming up"))
+	if len(upcoming) == 0 {
+		rightLines = append(rightLines, "  "+dashPanelEmptyStyle.Render("all caught up"))
+	} else {
+		for i, e := range upcoming {
+			if i >= available {
+				rightLines = append(rightLines, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-available)))
+				break
+			}
+			overhead := len(e.subject) + 2 + 5
+			maxName := innerW - overhead
+			if maxName < 8 {
+				maxName = 8
+			}
+			name := truncate(e.conceptName, maxName)
+			conf := fmt.Sprintf("%.0f%%", e.confidence*100)
+			confStyle := dashDistWeakStyle
+			if e.confidence >= 0.3 {
+				confStyle = dashDistDevStyle
+			}
+			rightLines = append(rightLines, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
+		}
+	}
+
+	// Pad shorter column to match taller
+	maxH := len(leftLines)
+	if len(rightLines) > maxH {
+		maxH = len(rightLines)
+	}
+	for len(leftLines) < maxH {
+		leftLines = append(leftLines, "")
+	}
+	for len(rightLines) < maxH {
+		rightLines = append(rightLines, "")
+	}
+
+	left := strings.Join(leftLines, "\n")
+	right := strings.Join(rightLines, "\n")
+	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right) + "\n"
+}
+
+func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, maxRows int) string {
+	innerW := m.viewWidth - 4
+	if innerW < 12 {
+		innerW = 12
+	}
+
+	headerH := 1
+	available := maxRows - headerH
+	if available < 1 {
+		available = 1
+	}
+
+	var sections []string
+
+	recentRowsShown := 0
+	sections = append(sections, "  "+dashPanelHeaderStyle.Render("recently studied"))
+	if len(recent) == 0 {
+		sections = append(sections, "  "+dashPanelEmptyStyle.Render("nothing studied yet"))
+	} else {
+		for _, e := range recent {
+			if recentRowsShown >= available {
+				sections = append(sections, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
+				break
+			}
+			overhead := len(e.subject) + 2 + 1
+			maxName := innerW - overhead
+			if maxName < 8 {
+				maxName = 8
+			}
+			name := truncate(e.conceptName, maxName)
+			timeStr := ""
+			if e.updatedAt != nil {
+				timeStr = " " + dashPanelTimeStyle.Render(formatRelativeTime(*e.updatedAt))
+			}
+			sections = append(sections, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
+			recentRowsShown++
+		}
+	}
+
+	remaining := available - recentRowsShown
+	if remaining < 1 {
+		remaining = 1
+	}
+
+	sections = append(sections, "  "+dashPanelHeaderStyle.Render("coming up"))
+	if len(upcoming) == 0 {
+		sections = append(sections, "  "+dashPanelEmptyStyle.Render("all caught up"))
+	} else {
+		shown := 0
+		for _, e := range upcoming {
+			if shown >= remaining {
+				sections = append(sections, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-remaining)))
+				break
+			}
+			overhead := len(e.subject) + 2 + 5
+			maxName := innerW - overhead
+			if maxName < 8 {
+				maxName = 8
+			}
+			name := truncate(e.conceptName, maxName)
+			conf := fmt.Sprintf("%.0f%%", e.confidence*100)
+			confStyle := dashDistWeakStyle
+			if e.confidence >= 0.3 {
+				confStyle = dashDistDevStyle
+			}
+			sections = append(sections, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
+			shown++
+		}
+	}
+
+	return "\n" + strings.Join(sections, "\n") + "\n"
 }
 
 func (m DashboardModel) renderHelpBar() string {
@@ -787,8 +1127,13 @@ func countQuizzes(subjectsDir, subject string) int {
 }
 
 func centerBlock(text string, width int) string {
+	text = strings.TrimRight(text, "\n")
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return "\n"
+	}
 	maxW := 0
-	for _, line := range strings.Split(text, "\n") {
+	for _, line := range lines {
 		w := lipgloss.Width(line)
 		if w > maxW {
 			maxW = w
@@ -799,9 +1144,21 @@ func centerBlock(text string, width int) string {
 		leftPad = 0
 	}
 	pad := strings.Repeat(" ", leftPad)
-	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		lines[i] = pad + line
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func truncate(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return strings.Repeat(".", maxLen)
+	}
+	return s[:maxLen-3] + "..."
 }

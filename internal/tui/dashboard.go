@@ -401,99 +401,71 @@ func (m DashboardModel) View() string {
 		m.viewHeight = 24
 	}
 
-	// === BUILD ALL SECTIONS ===
+	var b strings.Builder
+	linesUsed := 0
 
-	// Header (no top margin)
+	// Header (no top margin — let the title sit higher)
 	header := m.renderHeader()
-	headerH := lipgloss.Height(header)
+	b.WriteString(header)
+	linesUsed += lipgloss.Height(header)
 
-	// Gap after header
-	gap1 := "\n"
-	gap1H := 1
+	// Blank line after header for breathing room
+	b.WriteString("\n")
+	linesUsed++
 
-	// Filter
-	var filter string
-	var filterH int
+	// Filter row
 	if m.state == dashFiltering || m.filterText != "" {
 		filterLabel := dashFilterStyle.Render(" / ")
-		filter = centerBlock(filterLabel+m.filterInput.View(), m.viewWidth)
-		filterH = lipgloss.Height(filter)
+		filterLine := filterLabel + m.filterInput.View()
+		b.WriteString(centerBlock(filterLine, m.viewWidth))
+		b.WriteString("\n")
+		linesUsed += 2
 	}
 
 	// Action row
-	var actionRow string
-	var actionRowH int
 	if m.state == dashActionRow {
-		actionRow = m.renderActionRow()
-		actionRowH = lipgloss.Height(actionRow)
+		actionRow := m.renderActionRow()
+		b.WriteString(actionRow)
+		linesUsed += lipgloss.Height(actionRow)
 	}
 
 	// Grid
 	filtered := m.filteredSubjects()
-	var grid string
-	var gridH int
 	if len(filtered) == 0 {
 		if m.filterText != "" {
-			grid = "  " + dashDetailStyle.Render("No subjects match your filter.")
-			gridH = 1
+			b.WriteString(dashDetailStyle.Render("  No subjects match your filter."))
+			b.WriteString("\n")
+			linesUsed += 2
 		} else {
-			grid = m.renderEmptyState()
-			gridH = lipgloss.Height(grid)
+			empty := m.renderEmptyState()
+			b.WriteString(empty)
+			linesUsed += lipgloss.Height(empty)
 		}
 	} else {
-		grid = m.renderGrid(filtered)
-		gridH = lipgloss.Height(grid)
+		grid := m.renderGrid(filtered)
+		b.WriteString(grid)
+		linesUsed += lipgloss.Height(grid)
 	}
 
-	// Calculate used height before activity panel
-	usedH := headerH + gap1H + filterH + actionRowH + gridH
-
-	// Footer
-	footer := centerBlock(m.renderHelpBar(), m.viewWidth)
-	footerH := lipgloss.Height(footer)
-
-	// Activity panel height = whatever is left
-	activityH := m.viewHeight - usedH - footerH
-	if activityH < 3 {
-		activityH = 3
+	// Activity panel — snug up to cards, fill remaining down to footer
+	footerLines := 1
+	activityMax := m.viewHeight - linesUsed - footerLines
+	if activityMax > 0 {
+		panel := m.renderActivityPanel(activityMax)
+		if panel != "" {
+			b.WriteString(panel)
+			linesUsed += lipgloss.Height(panel)
+		}
 	}
 
-	// Build activity panel
-	activity := m.renderActivityPanel(activityH)
-
-	// === ASSEMBLE ===
-	var b strings.Builder
-
-	b.WriteString(header)
-	b.WriteString(gap1)
-
-	if filter != "" {
-		b.WriteString(filter)
-		b.WriteString("\n")
-	}
-	if actionRow != "" {
-		b.WriteString(actionRow)
-	}
-
-	b.WriteString(grid)
-
-	if activity != "" {
-		b.WriteString(activity)
-	}
-
-	// Calculate current rendered height
-	currentH := usedH
-	if activity != "" {
-		currentH += lipgloss.Height(activity)
-	}
-
-	// Pad to push footer to bottom
-	padding := m.viewHeight - currentH - footerH
-	for i := 0; i < padding; i++ {
+	// Push footer to bottom with minimal padding
+	remaining := m.viewHeight - linesUsed - footerLines
+	for i := 0; i < remaining; i++ {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(footer)
+	// Footer — always on the last line
+	b.WriteString(centerBlock(m.renderHelpBar(), m.viewWidth))
 
 	return b.String()
 }
@@ -505,6 +477,7 @@ func (m DashboardModel) renderHeader() string {
 	tagline := dashTaglineStyle.Render("terminal study harness")
 	headerLine := title + "  " + tagline
 	b.WriteString(centerBlock(headerLine, m.viewWidth))
+	b.WriteString("\n")
 
 	weak, dev, strong, total := 0, 0, 0, 0
 	for _, s := range m.subjects {
@@ -540,7 +513,6 @@ func (m DashboardModel) renderHeader() string {
 		if m.viewWidth < minTotalWidth {
 			distLine := fmt.Sprintf("Weak %d  ·  Developing %d  ·  Strong %d  ·  %d concepts",
 				weak, dev, strong, total)
-			b.WriteString("\n")
 			b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.viewWidth))
 		} else {
 			availableForBars := m.viewWidth - labelWidth - 12
@@ -571,7 +543,6 @@ func (m DashboardModel) renderHeader() string {
 
 			distLine := fmt.Sprintf("Weak %s %d  ·  Developing %s %d  ·  Strong %s %d  ·  %d concepts",
 				weakBar, weak, devBar, dev, strongBar, strong, total)
-			b.WriteString("\n")
 			b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.viewWidth))
 		}
 	}
@@ -746,6 +717,7 @@ func (m DashboardModel) renderEmptyState() string {
 	b.WriteString("\n")
 	b.WriteString(strings.Repeat(" ", leftPad))
 	b.WriteString(box)
+	b.WriteString("\n")
 	return b.String()
 }
 
@@ -827,7 +799,7 @@ func (m DashboardModel) renderActionRow() string {
 	}
 
 	row := dashActionBarStyle.Render("→ ") + strings.Join(items, "  ")
-	return centerBlock(row, m.viewWidth)
+	return centerBlock(row, m.viewWidth) + "\n"
 }
 
 func (m DashboardModel) recentlyStudied() []activityEntry {
@@ -929,14 +901,10 @@ func (m DashboardModel) renderActivityPanel(maxRows int) string {
 	separator := dashSeparatorStyle.Render(strings.Repeat("─", sepWidth))
 
 	sideBySide := m.viewWidth >= minCardWidth*2+4
-	var panel string
 	if sideBySide {
-		panel = m.renderActivitySideBySide(recent, upcoming, maxRows)
-	} else {
-		panel = m.renderActivityStacked(recent, upcoming, maxRows)
+		return "\n" + separator + "\n" + m.renderActivitySideBySide(recent, upcoming, maxRows-1)
 	}
-
-	return "\n" + separator + "\n" + panel
+	return "\n" + separator + "\n" + m.renderActivityStacked(recent, upcoming, maxRows-1)
 }
 
 func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntry, maxRows int) string {
@@ -946,11 +914,13 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 		innerW = 12
 	}
 
+	// More generous: only reserve 1 line for headers
 	available := maxRows - 1
 	if available < 1 {
 		available = 1
 	}
 
+	// Left column: recently studied
 	var leftLines []string
 	leftLines = append(leftLines, dashPanelHeaderStyle.Render("recently studied"))
 	if len(recent) == 0 {
@@ -975,6 +945,7 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 		}
 	}
 
+	// Right column: coming up
 	var rightLines []string
 	rightLines = append(rightLines, dashPanelHeaderStyle.Render("coming up"))
 	if len(upcoming) == 0 {
@@ -1000,6 +971,7 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 		}
 	}
 
+	// Pad shorter column to match taller
 	maxH := len(leftLines)
 	if len(rightLines) > maxH {
 		maxH = len(rightLines)
@@ -1013,7 +985,7 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 
 	left := strings.Join(leftLines, "\n")
 	right := strings.Join(rightLines, "\n")
-	result := lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right)
+	result := "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right) + "\n"
 	return centerBlock(result, m.viewWidth)
 }
 
@@ -1086,7 +1058,7 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 		}
 	}
 
-	result := strings.Join(sections, "\n")
+	result := "\n" + strings.Join(sections, "\n") + "\n"
 	return centerBlock(result, m.viewWidth)
 }
 
@@ -1160,7 +1132,7 @@ func centerBlock(text string, width int) string {
 	text = strings.TrimRight(text, "\n")
 	lines := strings.Split(text, "\n")
 	if len(lines) == 0 {
-		return ""
+		return "\n"
 	}
 	maxW := 0
 	for _, line := range lines {
@@ -1177,7 +1149,7 @@ func centerBlock(text string, width int) string {
 	for i, line := range lines {
 		lines[i] = pad + line
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func truncate(s string, maxLen int) string {

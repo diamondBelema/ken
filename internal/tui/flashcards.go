@@ -188,7 +188,7 @@ func (m FlashcardModel) getCurrentCardLink() *progress.EntityRef {
 	return &progress.EntityRef{Type: "card", ID: card.ID}
 }
 
-func (m FlashcardModel) cycleLinkTarget() {
+func (m *FlashcardModel) cycleLinkTarget() {
 	card := m.session.Current()
 	targets := []*progress.EntityRef{}
 

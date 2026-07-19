@@ -215,7 +215,7 @@ func (m QuizModel) getCurrentQuestionLink() *progress.EntityRef {
 	return &progress.EntityRef{Type: "quiz", ID: q.ID}
 }
 
-func (m QuizModel) cycleLinkTarget() {
+func (m *QuizModel) cycleLinkTarget() {
 	q := m.session.Current()
 	targets := []*progress.EntityRef{}
 

@@ -379,14 +379,16 @@ func (m DashboardModel) cardHeight() int {
 }
 
 func (m DashboardModel) columnCount() int {
-	cols := m.viewWidth / (minCardWidth + 2)
-	if cols > 3 {
-		cols = 3
+	if m.viewWidth >= 160 {
+		return 4
 	}
-	if cols < 1 {
-		cols = 1
+	if m.viewWidth >= 120 {
+		return 3
 	}
-	return cols
+	if m.viewWidth >= 80 {
+		return 2
+	}
+	return 1
 }
 
 func (m DashboardModel) View() string {
@@ -552,7 +554,12 @@ func (m DashboardModel) renderHeader() string {
 
 func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 	cols := m.columnCount()
+
+	const maxCardWidth = 42
 	colWidth := m.viewWidth / cols
+	if colWidth > maxCardWidth {
+		colWidth = maxCardWidth
+	}
 	if colWidth < minCardWidth {
 		colWidth = minCardWidth
 	}
@@ -908,7 +915,13 @@ func (m DashboardModel) renderActivityPanel(maxRows int) string {
 }
 
 func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntry, maxRows int) string {
-	halfW := (m.viewWidth - 4) / 2
+	const maxPanelWidth = 120
+	effectiveWidth := m.viewWidth
+	if effectiveWidth > maxPanelWidth {
+		effectiveWidth = maxPanelWidth
+	}
+
+	halfW := (effectiveWidth - 4) / 2
 	innerW := halfW - 2
 	if innerW < 12 {
 		innerW = 12
@@ -990,7 +1003,13 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 }
 
 func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, maxRows int) string {
-	innerW := m.viewWidth - 4
+	const maxPanelWidth = 120
+	effectiveWidth := m.viewWidth
+	if effectiveWidth > maxPanelWidth {
+		effectiveWidth = maxPanelWidth
+	}
+
+	innerW := effectiveWidth - 4
 	if innerW < 12 {
 		innerW = 12
 	}

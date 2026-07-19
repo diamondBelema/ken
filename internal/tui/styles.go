@@ -3,17 +3,18 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	colorPrimary    = lipgloss.Color("39")
-	colorSecondary  = lipgloss.Color("241")
-	colorAccent     = lipgloss.Color("141")
-	colorSuccess    = lipgloss.Color("112")
-	colorWarning    = lipgloss.Color("220")
-	colorDanger     = lipgloss.Color("196")
-	colorMuted      = lipgloss.Color("247")
-	colorText       = lipgloss.Color("252")
-	colorTextBright = lipgloss.Color("230")
-	colorBorder     = lipgloss.Color("62")
-	colorBg         = lipgloss.Color("236")
+	colorPrimary       = lipgloss.Color("39")
+	colorSecondary     = lipgloss.Color("241")
+	colorAccent        = lipgloss.Color("141")
+	colorSuccess       = lipgloss.Color("112")
+	colorWarning       = lipgloss.Color("220")
+	colorDanger        = lipgloss.Color("196")
+	colorMuted         = lipgloss.Color("247")
+	colorText          = lipgloss.Color("252")
+	colorTextBright    = lipgloss.Color("230")
+	colorBorder        = lipgloss.Color("62")
+	colorBg            = lipgloss.Color("236")
+	colorBgHighlight   = lipgloss.Color("237")
 
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -53,7 +54,7 @@ var (
 			MarginTop(1)
 
 	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("249")).
+			Foreground(colorSecondary).
 			MarginTop(1)
 
 	gradeButtonStyle = lipgloss.NewStyle().
@@ -77,7 +78,7 @@ var (
 				Foreground(colorPrimary).
 				MarginTop(1)
 
- listItemStyle = lipgloss.NewStyle().
+	listItemStyle = lipgloss.NewStyle().
 			Foreground(colorText).
 			PaddingLeft(1)
 
@@ -105,7 +106,8 @@ var (
 	dashCardSelectedStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorPrimary).
-				Padding(0, 1)
+				Padding(0, 1).
+				Background(colorBgHighlight)
 
 	dashSubjectStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -119,7 +121,6 @@ var (
 				Foreground(colorMuted)
 
 	dashBadgeDueStyle = lipgloss.NewStyle().
-				Bold(true).
 				Foreground(colorWarning)
 
 	dashBadgeNeverStyle = lipgloss.NewStyle().
@@ -188,5 +189,5 @@ var (
 				Italic(true)
 
 	dashSeparatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240"))
+				Foreground(lipgloss.Color("102"))
 )

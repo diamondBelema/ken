@@ -503,17 +503,14 @@ func (m DashboardModel) renderHeader() string {
 	}
 
 	if total > 0 {
-		// Measure plain label width
 		labelOnly := fmt.Sprintf("Weak %d  ·  Developing %d  ·  Strong %d  ·  %d concepts",
 			weak, dev, strong, total)
 		labelWidth := lipgloss.Width(labelOnly)
 
-		// Minimum space needed: label + 3 small bars (6 chars each) + separators
 		minBarWidth := 6
 		minTotalWidth := labelWidth + 3*minBarWidth + 12
 
 		if m.viewWidth < minTotalWidth {
-			// Too narrow for bars
 			distLine := fmt.Sprintf("Weak %d  ·  Developing %d  ·  Strong %d  ·  %d concepts",
 				weak, dev, strong, total)
 			b.WriteString(centerBlock(dashStatsRowStyle.Render(distLine), m.viewWidth))
@@ -555,7 +552,6 @@ func (m DashboardModel) renderHeader() string {
 
 func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 	cols := m.columnCount()
-	// FIX: simpler colWidth — let JoinHorizontal handle gaps naturally
 	colWidth := m.viewWidth / cols
 	if colWidth < minCardWidth {
 		colWidth = minCardWidth
@@ -589,8 +585,16 @@ func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 			rendered = append(rendered, m.renderSubjectCard(s, selected, colWidth))
 		}
 
+		// Add 1-char gaps between cards
 		if len(rendered) > 1 {
-			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, rendered...))
+			var withGaps []string
+			for k, card := range rendered {
+				withGaps = append(withGaps, card)
+				if k < len(rendered)-1 {
+					withGaps = append(withGaps, " ")
+				}
+			}
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, withGaps...))
 		} else {
 			rows = append(rows, rendered[0])
 		}
@@ -617,7 +621,6 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 
 	due := m.dueCount(s.Name)
 
-	// FIX: account for border (2 chars) + padding (2 chars) = 4, plus some breathing room
 	innerWidth := colWidth - 6
 	if innerWidth < 10 {
 		innerWidth = 10
@@ -676,7 +679,6 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 
 	content := strings.Join(lines, "\n")
 
-	// FIX: Use Width() without MarginBottom to prevent layout drift
 	style := dashCardStyle.
 		Width(colWidth - 4).
 		Padding(0, 1).
@@ -893,7 +895,6 @@ func (m DashboardModel) renderActivityPanel(maxRows int) string {
 	recent := m.recentlyStudied()
 	upcoming := m.comingUp()
 
-	// Separator line between grid and activity
 	sepWidth := m.viewWidth - 4
 	if sepWidth < 20 {
 		sepWidth = 20
@@ -914,20 +915,20 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 		innerW = 12
 	}
 
-	available := maxRows - 2
+	available := maxRows - 1
 	if available < 1 {
 		available = 1
 	}
 
 	// Left column: recently studied
 	var leftLines []string
-	leftLines = append(leftLines, "  "+dashPanelHeaderStyle.Render("recently studied"))
+	leftLines = append(leftLines, dashPanelHeaderStyle.Render("recently studied"))
 	if len(recent) == 0 {
-		leftLines = append(leftLines, "  "+dashPanelEmptyStyle.Render("nothing studied yet"))
+		leftLines = append(leftLines, dashPanelEmptyStyle.Render("nothing studied yet"))
 	} else {
 		for i, e := range recent {
 			if i >= available {
-				leftLines = append(leftLines, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
+				leftLines = append(leftLines, dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
 				break
 			}
 			overhead := len(e.subject) + 2 + 1
@@ -940,19 +941,19 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 			if e.updatedAt != nil {
 				timeStr = " " + dashPanelTimeStyle.Render(formatRelativeTime(*e.updatedAt))
 			}
-			leftLines = append(leftLines, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
+			leftLines = append(leftLines, dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
 		}
 	}
 
 	// Right column: coming up
 	var rightLines []string
-	rightLines = append(rightLines, "  "+dashPanelHeaderStyle.Render("coming up"))
+	rightLines = append(rightLines, dashPanelHeaderStyle.Render("coming up"))
 	if len(upcoming) == 0 {
-		rightLines = append(rightLines, "  "+dashPanelEmptyStyle.Render("all caught up"))
+		rightLines = append(rightLines, dashPanelEmptyStyle.Render("all caught up"))
 	} else {
 		for i, e := range upcoming {
 			if i >= available {
-				rightLines = append(rightLines, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-available)))
+				rightLines = append(rightLines, dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-available)))
 				break
 			}
 			overhead := len(e.subject) + 2 + 5
@@ -966,7 +967,7 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 			if e.confidence >= 0.3 {
 				confStyle = dashDistDevStyle
 			}
-			rightLines = append(rightLines, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
+			rightLines = append(rightLines, dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
 		}
 	}
 
@@ -984,7 +985,8 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 
 	left := strings.Join(leftLines, "\n")
 	right := strings.Join(rightLines, "\n")
-	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right) + "\n"
+	result := "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "    ", right) + "\n"
+	return centerBlock(result, m.viewWidth)
 }
 
 func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, maxRows int) string {
@@ -1002,13 +1004,13 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 	var sections []string
 
 	recentRowsShown := 0
-	sections = append(sections, "  "+dashPanelHeaderStyle.Render("recently studied"))
+	sections = append(sections, dashPanelHeaderStyle.Render("recently studied"))
 	if len(recent) == 0 {
-		sections = append(sections, "  "+dashPanelEmptyStyle.Render("nothing studied yet"))
+		sections = append(sections, dashPanelEmptyStyle.Render("nothing studied yet"))
 	} else {
 		for _, e := range recent {
 			if recentRowsShown >= available {
-				sections = append(sections, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
+				sections = append(sections, dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(recent)-available)))
 				break
 			}
 			overhead := len(e.subject) + 2 + 1
@@ -1021,7 +1023,7 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 			if e.updatedAt != nil {
 				timeStr = " " + dashPanelTimeStyle.Render(formatRelativeTime(*e.updatedAt))
 			}
-			sections = append(sections, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
+			sections = append(sections, dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+timeStr)
 			recentRowsShown++
 		}
 	}
@@ -1031,14 +1033,14 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 		remaining = 1
 	}
 
-	sections = append(sections, "  "+dashPanelHeaderStyle.Render("coming up"))
+	sections = append(sections, dashPanelHeaderStyle.Render("coming up"))
 	if len(upcoming) == 0 {
-		sections = append(sections, "  "+dashPanelEmptyStyle.Render("all caught up"))
+		sections = append(sections, dashPanelEmptyStyle.Render("all caught up"))
 	} else {
 		shown := 0
 		for _, e := range upcoming {
 			if shown >= remaining {
-				sections = append(sections, "  "+dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-remaining)))
+				sections = append(sections, dashPanelTimeStyle.Render(fmt.Sprintf("+%d more", len(upcoming)-remaining)))
 				break
 			}
 			overhead := len(e.subject) + 2 + 5
@@ -1052,12 +1054,13 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 			if e.confidence >= 0.3 {
 				confStyle = dashDistDevStyle
 			}
-			sections = append(sections, "  "+dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
+			sections = append(sections, dashPanelSubjectStyle.Render(e.subject)+"  "+dashPanelItemStyle.Render(name)+"  "+confStyle.Render(conf))
 			shown++
 		}
 	}
 
-	return "\n" + strings.Join(sections, "\n") + "\n"
+	result := "\n" + strings.Join(sections, "\n") + "\n"
+	return centerBlock(result, m.viewWidth)
 }
 
 func (m DashboardModel) renderHelpBar() string {

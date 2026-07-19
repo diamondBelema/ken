@@ -424,6 +424,8 @@ func (m QuizModel) View() string {
 			}
 
 			b.WriteString("\n")
+			b.WriteString(renderUserNotes(m.progress, q.ConceptID, q.ID, "quiz", m.width))
+			b.WriteString("\n")
 			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  q quit"))
 		}
 
@@ -479,6 +481,7 @@ func (m QuizModel) View() string {
 			}
 
 			b.WriteString("\n\n")
+			b.WriteString(renderUserNotes(m.progress, q.ConceptID, q.ID, "quiz", m.width))
 			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  enter continue  ·  q quit"))
 		}
 

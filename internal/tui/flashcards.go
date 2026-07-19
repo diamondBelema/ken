@@ -325,6 +325,7 @@ func (m FlashcardModel) View() string {
 				Render(frontStyle.Render(card.Front))
 
 			b.WriteString(cardStyle.Render(cardContent))
+			b.WriteString(renderUserNotes(m.progress, card.ConceptID, card.ID, "card", m.width))
 			b.WriteString("\n")
 			b.WriteString(helpStyle.Render("  space/enter flip  ·  c concept  ·  n note  ·  q quit"))
 		}
@@ -374,6 +375,7 @@ func (m FlashcardModel) View() string {
 				b.WriteString("\n  ")
 				b.WriteString(notesStyle.Render(card.Notes))
 			}
+			b.WriteString(renderUserNotes(m.progress, card.ConceptID, card.ID, "card", m.width))
 			b.WriteString("\n\n")
 
 			grades := lipgloss.JoinHorizontal(lipgloss.Center,

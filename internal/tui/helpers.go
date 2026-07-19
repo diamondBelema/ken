@@ -101,3 +101,49 @@ func renderConceptDetail(concept *parser.Concept, prog *progress.Progress, conce
 	rendered := render.RenderMarkdown(md, width-4)
 	return strings.Split(rendered, "\n")
 }
+
+func renderUserNotes(prog *progress.Progress, conceptID, itemID, itemType string, width int) string {
+	var notes []progress.Note
+
+	if conceptID != "" {
+		notes = append(notes, prog.NotesForConcept(conceptID)...)
+	}
+	if itemID != "" {
+		switch itemType {
+		case "card":
+			notes = append(notes, prog.NotesForCard(itemID)...)
+		case "quiz":
+			notes = append(notes, prog.NotesForQuiz(itemID)...)
+		}
+	}
+
+	if len(notes) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(
+		fmt.Sprintf("  Notes (%d):", len(notes))))
+	b.WriteString("\n")
+
+	for i, note := range notes {
+		link := "unlinked"
+		if note.LinkedTo != nil {
+			switch note.LinkedTo.Type {
+			case "concept":
+				link = "concept"
+			case "card":
+				link = "card"
+			case "quiz":
+				link = "quiz"
+			}
+		}
+		truncated := runeTruncate(note.Content, width-8)
+		b.WriteString(fmt.Sprintf("    %s %s\n",
+			lipgloss.NewStyle().Foreground(colorMuted).Render(fmt.Sprintf("[%d·%s]", i+1, link)),
+			lipgloss.NewStyle().Foreground(colorText).Render(truncated)))
+	}
+
+	return b.String()
+}

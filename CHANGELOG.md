@@ -10,8 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Concept detail view (`c` key) in flashcard and quiz study — shows concept name, description, summary, diagrams, links, note/summary counts
 - Concept detail view uses glamour markdown rendering with scroll support (j/k/g/G)
-- Shared helpers: `renderProgressBar`, `runeTruncate`, `buildConceptMap`, `lookupConcept`, `renderConceptDetail`
+- Shared helpers: `renderProgressBar`, `runeTruncate`, `buildConceptMap`, `lookupConcept`, `renderConceptDetail`, `renderUserNotes`
 - Content summaries from concept files shown in summaries view with `[content]` label
+- Notes display in flashcard/quiz views — shows all notes linked to the concept AND the specific card/quiz
+- Note tab-cycling: attach to concept, specific card/quiz, or unlinked
 
 ### Fixed
 - Progress view scroll — overhead calculation was wrong (viewHeight-4 → viewHeight-6), causing beginning concepts to be cut off at terminal bottom

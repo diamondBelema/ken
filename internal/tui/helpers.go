@@ -343,3 +343,36 @@ func renderConceptInfo(concept *parser.Concept, prog *progress.Progress, concept
 
 	return "\n" + strings.Join(parts, "\n") + "\n"
 }
+
+// renderFullSummary renders the full content summary and user summaries (not truncated)
+func renderFullSummary(concept *parser.Concept, prog *progress.Progress, conceptID string, width int) string {
+	if concept == nil {
+		return ""
+	}
+
+	var parts []string
+
+	// Content summary
+	if concept.Summary != "" {
+		parts = append(parts, fmt.Sprintf("# %s — Summary\n", concept.Name))
+		parts = append(parts, concept.Summary)
+	}
+
+	// User summaries
+	userSummaries := prog.SummariesForConcept(conceptID)
+	if len(userSummaries) > 0 {
+		parts = append(parts, "")
+		parts = append(parts, fmt.Sprintf("## User Summaries (%d)\n", len(userSummaries)))
+		for i, s := range userSummaries {
+			parts = append(parts, fmt.Sprintf("### %d. %s\n", i+1, s.Title))
+			parts = append(parts, s.Content)
+			parts = append(parts, "")
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Join(parts, "\n")
+}

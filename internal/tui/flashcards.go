@@ -25,6 +25,7 @@ const (
 	fcShowingBack
 	fcNoteInput
 	fcFinished
+	fcSummaryView
 )
 
 // Message types for diagram/link operations
@@ -62,6 +63,8 @@ type FlashcardModel struct {
 	height             int
 	showConceptDetail  bool
 	conceptDetailScroll int
+	summaryContent     string
+	summaryScroll      int
 }
 
 func NewFlashcardModel(sess *study.FlashcardSession, prog *progress.Progress, concepts []parser.Concept) FlashcardModel {
@@ -89,6 +92,30 @@ func (m FlashcardModel) Init() tea.Cmd {
 func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.state == fcNoteInput {
 		return m.updateNoteInput(msg)
+	}
+
+	if m.state == fcSummaryView {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "q", "esc", "s":
+				m.state = m.prevState
+				return m, nil
+			case "j", "down":
+				m.summaryScroll++
+				m.clampSummaryScroll()
+			case "k", "up":
+				if m.summaryScroll > 0 {
+					m.summaryScroll--
+				}
+			case "g":
+				m.summaryScroll = 0
+			case "G":
+				m.summaryScroll = 999999
+				m.clampSummaryScroll()
+			}
+		}
+		return m, nil
 	}
 
 	switch msg := msg.(type) {
@@ -220,6 +247,20 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						})
 					}
 				}
+			case "s":
+				// Show full summary view
+				card := m.session.Current()
+				if card.ConceptID != "" {
+					if concept, ok := m.conceptMap[card.ConceptID]; ok {
+						content := renderFullSummary(&concept, m.progress, card.ConceptID, m.width)
+						if content != "" {
+							m.prevState = m.state
+							m.summaryContent = content
+							m.summaryScroll = 0
+							m.state = fcSummaryView
+						}
+					}
+				}
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -298,6 +339,21 @@ func (m *FlashcardModel) cycleLinkTarget() {
 
 	m.noteCycleIdx = (m.noteCycleIdx + 1) % len(targets)
 	m.noteLinkedTo = targets[m.noteCycleIdx]
+}
+
+func (m *FlashcardModel) clampSummaryScroll() {
+	lines := strings.Split(m.summaryContent, "\n")
+	visible := m.height - 4
+	if visible < 1 {
+		visible = 10
+	}
+	maxScroll := len(lines) - visible
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.summaryScroll > maxScroll {
+		m.summaryScroll = maxScroll
+	}
 }
 
 func (m FlashcardModel) updateNoteInput(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -497,8 +553,35 @@ func (m FlashcardModel) View() string {
 			b.WriteString("  ")
 			b.WriteString(grades)
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("  c concept  ·  v diagram  ·  d svg  ·  l link  ·  n note  ·  q quit"))
+			b.WriteString(helpStyle.Render("  c concept  ·  v diagram  ·  d svg  ·  l link  ·  s summary  ·  n note  ·  q quit"))
 		}
+
+	case fcSummaryView:
+		header := titleStyle.Render("  summary  ")
+		b.WriteString(header)
+		b.WriteString("\n\n")
+
+		lines := strings.Split(m.summaryContent, "\n")
+		visible := m.height - 4
+		if visible < 1 {
+			visible = 10
+		}
+
+		m.clampSummaryScroll()
+		start := m.summaryScroll
+		end := start + visible
+		if end > len(lines) {
+			end = len(lines)
+		}
+
+		for _, line := range lines[start:end] {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+
+		b.WriteString(strings.Repeat("─", m.width))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  s/esc back"))
 
 	case fcNoteInput:
 		card := m.session.Current()

@@ -198,6 +198,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 type progressItem struct {
 	id            string
+	name          string
 	status        string
 	statusColor   lipgloss.Style
 	desc          string
@@ -250,6 +251,9 @@ func (m ProgressModel) collectItems() []progressItem {
 
 		for _, c := range concepts {
 			if c.ID == id {
+				if c.Name != "" {
+					item.name = c.Name
+				}
 				if c.Description != "" {
 					item.desc = runeTruncate(c.Description, 80)
 					item.fullDesc = c.Description
@@ -371,7 +375,11 @@ func (m ProgressModel) View() string {
 	}
 
 	if m.viewState == progressDetail {
-		b.WriteString(subtitleStyle.Render(fmt.Sprintf("  %s", m.detailName)))
+		detailTitle := m.detailName
+		if item, ok := m.selectedItem(m.cachedItems); ok && item.name != "" {
+			detailTitle = item.name
+		}
+		b.WriteString(subtitleStyle.Render(fmt.Sprintf("  %s", detailTitle)))
 		b.WriteString("\n\n")
 
 		rendered := render.RenderMarkdown(m.detailContent, m.viewWidth-4)
@@ -455,11 +463,15 @@ func (m ProgressModel) View() string {
 
 	for i := m.scrollTop; i < end; i++ {
 		item := items[i]
+		displayName := item.id
+		if item.name != "" {
+			displayName = item.name
+		}
 		if i == m.selected {
-			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", item.id, item.status)))
+			b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", displayName, item.status)))
 			b.WriteString("\n")
 		} else {
-			b.WriteString(fmt.Sprintf("  %s  %s\n", lipgloss.NewStyle().Foreground(colorTextBright).Bold(true).Render(item.id), item.statusColor.Render(item.status)))
+			b.WriteString(fmt.Sprintf("  %s  %s\n", lipgloss.NewStyle().Foreground(colorTextBright).Bold(true).Render(displayName), item.statusColor.Render(item.status)))
 		}
 		if item.desc != "" {
 			b.WriteString(fmt.Sprintf("    %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render(item.desc)))

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Content summaries from concept files shown in summaries view with `[content]` label
 - Notes display in flashcard/quiz views — shows all notes linked to the concept AND the specific card/quiz
 - Note tab-cycling: attach to concept, specific card/quiz, or unlinked
+- Notes page: link notes to concepts via tab-cycling when creating new notes
+- Notes detail view shows linked entity
 
 ### Fixed
 - Progress view scroll — overhead calculation was wrong (viewHeight-4 → viewHeight-6), causing beginning concepts to be cut off at terminal bottom

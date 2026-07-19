@@ -100,7 +100,11 @@ func runNotes(subject string) error {
 		return fmt.Errorf("failed to load progress: %w", err)
 	}
 
-	m := tui.NewNotesModel(prog, subject)
+	home, _ := os.UserHomeDir()
+	subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
+	concepts, _ := study.LoadConcepts(subjectsDir, subject)
+
+	m := tui.NewNotesModel(prog, concepts, subject)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)

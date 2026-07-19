@@ -2,16 +2,20 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diamondBelema/ken/internal/diagram"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
+	"github.com/diamondBelema/ken/internal/system"
 )
 
 type quizState int
@@ -22,6 +26,25 @@ const (
 	quizNoteInput
 	quizFinished
 )
+
+// Message types for diagram/link operations
+type quizDiagramViewMsg struct {
+	source string
+	label  string
+}
+
+type quizDiagramOpenMsg struct {
+	file string
+}
+
+type quizDiagramRenderMsg struct {
+	source string
+	id     string
+}
+
+type quizLinkOpenMsg struct {
+	url string
+}
 
 type QuizModel struct {
 	session            *study.QuizSession
@@ -184,6 +207,47 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showConceptDetail = true
 				m.conceptDetailScroll = 0
 				return m, nil
+			case "v":
+				// ASCII diagram for current concept
+				q := m.session.Current()
+				if q.ConceptID != "" {
+					if concept, ok := m.conceptMap[q.ConceptID]; ok && len(concept.Diagrams) > 0 {
+						diag := concept.Diagrams[0]
+						source := diag.Source
+						if source != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return quizDiagramViewMsg{source: source, label: diag.Label}
+							})
+						}
+					}
+				}
+			case "d":
+				// Open SVG diagram for current concept
+				q := m.session.Current()
+				if q.ConceptID != "" {
+					if concept, ok := m.conceptMap[q.ConceptID]; ok && len(concept.Diagrams) > 0 {
+						diag := concept.Diagrams[0]
+						if diag.File != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return quizDiagramOpenMsg{file: diag.File}
+							})
+						} else if diag.Source != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return quizDiagramRenderMsg{source: diag.Source, id: diag.ID}
+							})
+						}
+					}
+				}
+			case "l":
+				// Open first link for current concept
+				q := m.session.Current()
+				if q.ConceptID != "" {
+					if concept, ok := m.conceptMap[q.ConceptID]; ok && len(concept.Links) > 0 {
+						return m, tea.Cmd(func() tea.Msg {
+							return quizLinkOpenMsg{url: concept.Links[0].URL}
+						})
+					}
+				}
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -194,6 +258,39 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
+
+	case quizDiagramViewMsg:
+		// Show ASCII diagram in concept detail view
+		_, err := diagram.RenderASCII(msg.source)
+		if err != nil {
+			// Just show error, concept detail will be updated
+		}
+		m.showConceptDetail = true
+		m.conceptDetailScroll = 0
+		return m, nil
+
+	case quizDiagramOpenMsg:
+		// Open external SVG file
+		q := m.session.Current()
+		if q.ConceptID != "" {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				subjDir := filepath.Join(home, "Documents", "learn", "subjects", m.session.Subject)
+				svgPath := filepath.Join(subjDir, msg.file)
+				system.OpenFile(svgPath)
+			}
+		}
+
+	case quizDiagramRenderMsg:
+		// Render mermaid to SVG and open
+		tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("ken-diagram-%s.svg", msg.id))
+		if err := diagram.RenderSVGToFile(msg.source, tmpPath); err == nil {
+			system.OpenFile(tmpPath)
+		}
+
+	case quizLinkOpenMsg:
+		// Open link in browser
+		system.OpenURL(msg.url)
 	}
 	return m, nil
 }
@@ -482,7 +579,18 @@ func (m QuizModel) View() string {
 
 			b.WriteString("\n\n")
 			b.WriteString(renderUserNotes(m.progress, q.ConceptID, q.ID, "quiz", m.width))
-			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  enter continue  ·  q quit"))
+
+			// Show concept info (diagrams, links, summaries)
+			if q.ConceptID != "" {
+				if concept, ok := m.conceptMap[q.ConceptID]; ok {
+					info := renderConceptInfo(&concept, m.progress, q.ConceptID, m.width)
+					if info != "" {
+						b.WriteString(info)
+					}
+				}
+			}
+
+			b.WriteString(helpStyle.Render("  c concept  ·  v diagram  ·  d svg  ·  l link  ·  n note  ·  enter continue  ·  q quit"))
 		}
 
 	case quizNoteInput:

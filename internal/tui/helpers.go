@@ -275,3 +275,71 @@ func renderUserNotes(prog *progress.Progress, conceptID, itemID, itemType string
 
 	return b.String()
 }
+
+// renderConceptInfo renders diagrams, links, and summaries for a concept
+func renderConceptInfo(concept *parser.Concept, prog *progress.Progress, conceptID string, width int) string {
+	if concept == nil {
+		return ""
+	}
+
+	var parts []string
+
+	// Content summary
+	if concept.Summary != "" {
+		parts = append(parts, fmt.Sprintf("  %s",
+			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("Content Summary:")))
+		parts = append(parts, fmt.Sprintf("    %s", lipgloss.NewStyle().Foreground(colorText).Italic(true).Render(runeTruncate(concept.Summary, width-8))))
+	}
+
+	// User summaries
+	userSummaries := prog.SummariesForConcept(conceptID)
+	if len(userSummaries) > 0 {
+		parts = append(parts, "")
+		parts = append(parts, fmt.Sprintf("  %s",
+			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(fmt.Sprintf("User Summaries (%d):", len(userSummaries)))))
+		for i, s := range userSummaries {
+			parts = append(parts, fmt.Sprintf("    %d. %s", i+1, lipgloss.NewStyle().Foreground(colorText).Render(runeTruncate(s.Title, width-12))))
+		}
+	}
+
+	// Diagrams
+	if len(concept.Diagrams) > 0 {
+		parts = append(parts, "")
+		parts = append(parts, fmt.Sprintf("  %s",
+			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(fmt.Sprintf("Diagrams (%d):", len(concept.Diagrams)))))
+		for _, d := range concept.Diagrams {
+			label := d.ID
+			if d.Label != "" {
+				label = d.Label
+			}
+			sourceType := "mermaid"
+			if d.File != "" {
+				sourceType = "svg"
+			}
+			parts = append(parts, fmt.Sprintf("    • %s (%s)  v:ascii  d:open",
+				lipgloss.NewStyle().Foreground(colorText).Render(label),
+				lipgloss.NewStyle().Foreground(colorMuted).Render(sourceType)))
+		}
+	}
+
+	// Links
+	if len(concept.Links) > 0 {
+		parts = append(parts, "")
+		parts = append(parts, fmt.Sprintf("  %s",
+			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(fmt.Sprintf("Links (%d):", len(concept.Links)))))
+		for _, link := range concept.Links {
+			title := link.Title
+			if title == "" {
+				title = link.URL
+			}
+			parts = append(parts, fmt.Sprintf("    • %s  l:open",
+				lipgloss.NewStyle().Foreground(colorText).Render(runeTruncate(title, width-16))))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return "\n" + strings.Join(parts, "\n") + "\n"
+}

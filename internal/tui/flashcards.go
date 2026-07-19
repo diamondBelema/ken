@@ -2,16 +2,20 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/diamondBelema/ken/internal/diagram"
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
+	"github.com/diamondBelema/ken/internal/system"
 )
 
 type flashcardState int
@@ -22,6 +26,25 @@ const (
 	fcNoteInput
 	fcFinished
 )
+
+// Message types for diagram/link operations
+type diagramViewMsg struct {
+	source string
+	label  string
+}
+
+type diagramOpenMsg struct {
+	file string
+}
+
+type diagramRenderMsg struct {
+	source string
+	id     string
+}
+
+type linkOpenMsg struct {
+	url string
+}
 
 type FlashcardModel struct {
 	session            *study.FlashcardSession
@@ -156,6 +179,47 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "n":
 				return m.startNoteInput(), nil
+			case "v":
+				// ASCII diagram for current concept
+				card := m.session.Current()
+				if card.ConceptID != "" {
+					if concept, ok := m.conceptMap[card.ConceptID]; ok && len(concept.Diagrams) > 0 {
+						diag := concept.Diagrams[0]
+						source := diag.Source
+						if source != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return diagramViewMsg{source: source, label: diag.Label}
+							})
+						}
+					}
+				}
+			case "d":
+				// Open SVG diagram for current concept
+				card := m.session.Current()
+				if card.ConceptID != "" {
+					if concept, ok := m.conceptMap[card.ConceptID]; ok && len(concept.Diagrams) > 0 {
+						diag := concept.Diagrams[0]
+						if diag.File != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return diagramOpenMsg{file: diag.File}
+							})
+						} else if diag.Source != "" {
+							return m, tea.Cmd(func() tea.Msg {
+								return diagramRenderMsg{source: diag.Source, id: diag.ID}
+							})
+						}
+					}
+				}
+			case "l":
+				// Open first link for current concept
+				card := m.session.Current()
+				if card.ConceptID != "" {
+					if concept, ok := m.conceptMap[card.ConceptID]; ok && len(concept.Links) > 0 {
+						return m, tea.Cmd(func() tea.Msg {
+							return linkOpenMsg{url: concept.Links[0].URL}
+						})
+					}
+				}
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -166,6 +230,40 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
+
+	case diagramViewMsg:
+		// Show ASCII diagram in a popup or inline
+		_, err := diagram.RenderASCII(msg.source)
+		if err != nil {
+			// Just show error, concept detail will be updated
+		}
+		// For now, just show in concept detail view
+		m.showConceptDetail = true
+		m.conceptDetailScroll = 0
+		return m, nil
+
+	case diagramOpenMsg:
+		// Open external SVG file
+		card := m.session.Current()
+		if card.ConceptID != "" {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				subjDir := filepath.Join(home, "Documents", "learn", "subjects", m.session.Subject)
+				svgPath := filepath.Join(subjDir, msg.file)
+				system.OpenFile(svgPath)
+			}
+		}
+
+	case diagramRenderMsg:
+		// Render mermaid to SVG and open
+		tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("ken-diagram-%s.svg", msg.id))
+		if err := diagram.RenderSVGToFile(msg.source, tmpPath); err == nil {
+			system.OpenFile(tmpPath)
+		}
+
+	case linkOpenMsg:
+		// Open link in browser
+		system.OpenURL(msg.url)
 	}
 	return m, nil
 }
@@ -376,7 +474,18 @@ func (m FlashcardModel) View() string {
 				b.WriteString(notesStyle.Render(card.Notes))
 			}
 			b.WriteString(renderUserNotes(m.progress, card.ConceptID, card.ID, "card", m.width))
-			b.WriteString("\n\n")
+
+			// Show concept info (diagrams, links, summaries)
+			if card.ConceptID != "" {
+				if concept, ok := m.conceptMap[card.ConceptID]; ok {
+					info := renderConceptInfo(&concept, m.progress, card.ConceptID, m.width)
+					if info != "" {
+						b.WriteString(info)
+					}
+				}
+			}
+
+			b.WriteString("\n")
 
 			grades := lipgloss.JoinHorizontal(lipgloss.Center,
 				gradeUnknownStyle.Render("1:Unknown"),
@@ -388,7 +497,7 @@ func (m FlashcardModel) View() string {
 			b.WriteString("  ")
 			b.WriteString(grades)
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  q quit"))
+			b.WriteString(helpStyle.Render("  c concept  ·  v diagram  ·  d svg  ·  l link  ·  n note  ·  q quit"))
 		}
 
 	case fcNoteInput:

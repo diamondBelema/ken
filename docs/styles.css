@@ -19,15 +19,16 @@
   --text-secondary: #a1a1aa;
   --text-tertiary: #828290;
 
-  /* Accent — single color used sparingly */
-  --accent: #3b82f6;
-  --accent-dim: rgba(59, 130, 246, 0.12);
+  /* Accent — matches ken's own TUI selected-card border (ANSI 39 / #00afff),
+     not an arbitrary framework default */
+  --accent: #00afff;
+  --accent-dim: rgba(0, 175, 255, 0.12);
 
-  /* Semantic */
-  --green: #22c55e;
-  --green-dim: rgba(34, 197, 94, 0.12);
-  --amber: #eab308;
-  --amber-dim: rgba(234, 179, 8, 0.12);
+  /* Semantic — aligned to the TUI's own palette (ANSI 112 / 220) */
+  --green: #87d75f;
+  --green-dim: rgba(135, 215, 95, 0.12);
+  --amber: #ffd700;
+  --amber-dim: rgba(255, 215, 0, 0.12);
 
   /* Fonts */
   --font-heading: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -144,11 +145,11 @@ section { padding: 72px 0; scroll-margin-top: 56px; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-heading);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-weight: 500;
   font-size: 15px;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .nav__brand img {
@@ -213,11 +214,11 @@ section { padding: 72px 0; scroll-margin-top: 56px; }
 }
 
 .hero__title {
-  font-family: var(--font-heading);
-  font-size: 48px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.035em;
+  font-family: var(--font-mono);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   margin-bottom: 16px;
   text-wrap: balance;
@@ -957,7 +958,7 @@ section { padding: 72px 0; scroll-margin-top: 56px; }
   .nav__links { gap: 0; }
   .nav__links a { font-size: 13px; padding: 4px 8px; }
   .hero { padding: 64px 0 48px; }
-  .hero__title { font-size: 36px; }
+  .hero__title { font-size: 44px; }
   .section-heading { font-size: 24px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .stat__value { font-size: 24px; }

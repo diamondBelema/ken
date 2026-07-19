@@ -404,14 +404,14 @@ func (m DashboardModel) View() string {
 	var b strings.Builder
 	linesUsed := 0
 
-	// Top margin
-	b.WriteString("\n")
-	linesUsed++
-
-	// Header
+	// Header (no top margin — let the title sit higher)
 	header := m.renderHeader()
 	b.WriteString(header)
 	linesUsed += lipgloss.Height(header)
+
+	// Blank line after header for breathing room
+	b.WriteString("\n")
+	linesUsed++
 
 	// Filter row
 	if m.state == dashFiltering || m.filterText != "" {
@@ -447,7 +447,7 @@ func (m DashboardModel) View() string {
 		linesUsed += lipgloss.Height(grid)
 	}
 
-	// Activity panel — fill remaining space above footer
+	// Activity panel — snug up to cards, fill remaining down to footer
 	footerLines := 1
 	activityMax := m.viewHeight - linesUsed - footerLines
 	if activityMax > 0 {
@@ -458,7 +458,7 @@ func (m DashboardModel) View() string {
 		}
 	}
 
-	// Pad to push footer to bottom
+	// Push footer to bottom with minimal padding
 	remaining := m.viewHeight - linesUsed - footerLines
 	for i := 0; i < remaining; i++ {
 		b.WriteString("\n")
@@ -585,7 +585,6 @@ func (m DashboardModel) renderGrid(filtered []discovery.SubjectInfo) string {
 			rendered = append(rendered, m.renderSubjectCard(s, selected, colWidth))
 		}
 
-		// Add 1-char gaps between cards
 		if len(rendered) > 1 {
 			var withGaps []string
 			for k, card := range rendered {
@@ -915,6 +914,7 @@ func (m DashboardModel) renderActivitySideBySide(recent, upcoming []activityEntr
 		innerW = 12
 	}
 
+	// More generous: only reserve 1 line for headers
 	available := maxRows - 1
 	if available < 1 {
 		available = 1
@@ -995,8 +995,7 @@ func (m DashboardModel) renderActivityStacked(recent, upcoming []activityEntry, 
 		innerW = 12
 	}
 
-	headerH := 1
-	available := maxRows - headerH
+	available := maxRows - 1
 	if available < 1 {
 		available = 1
 	}

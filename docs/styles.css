@@ -709,6 +709,17 @@ section { padding: 72px 0; scroll-margin-top: 56px; }
 
 /* ── Install ── */
 
+.install-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .install-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .install-block {
   border: 1px solid var(--border);
   border-radius: var(--r-md);

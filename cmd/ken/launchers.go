@@ -73,7 +73,7 @@ func runQuiz(subject string) error {
 	}
 	progress.InitConcepts(prog, concepts)
 
-	sess, err := study.LoadQuizzes(subjectDir, subject)
+	sess, err := study.LoadQuizzes(subjectDir, subject, prog)
 	if err != nil {
 		return err
 	}

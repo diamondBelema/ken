@@ -42,7 +42,7 @@ var quizCmd = &cobra.Command{
 		}
 		progress.InitConcepts(prog, concepts)
 
-		sess, err := study.LoadQuizzes(subjectDir, subject)
+		sess, err := study.LoadQuizzes(subjectDir, subject, prog)
 		if err != nil {
 			return err
 		}

@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/diamondBelema/ken/internal/parser"
+	"github.com/diamondBelema/ken/internal/progress"
 )
 
 type QuizSession struct {
@@ -17,7 +19,7 @@ type QuizSession struct {
 	Answered  int
 }
 
-func LoadQuizzes(subjectDir, subject string) (*QuizSession, error) {
+func LoadQuizzes(subjectDir, subject string, prog *progress.Progress) (*QuizSession, error) {
 	quizzesDir := filepath.Join(subjectDir, subject, "quizzes")
 	entries, err := os.ReadDir(quizzesDir)
 	if err != nil {
@@ -54,6 +56,14 @@ func LoadQuizzes(subjectDir, subject string) (*QuizSession, error) {
 
 	if len(allQuestions) == 0 {
 		return nil, fmt.Errorf("no questions found in %s", quizzesDir)
+	}
+
+	if prog != nil {
+		sort.Slice(allQuestions, func(i, j int) bool {
+			ci := conceptConfidence(prog, allQuestions[i].ConceptID)
+			cj := conceptConfidence(prog, allQuestions[j].ConceptID)
+			return ci < cj
+		})
 	}
 
 	return &QuizSession{

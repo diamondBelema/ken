@@ -6,7 +6,7 @@
 
 ## Project state
 
-All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`. TUI renders with bubbletea. Mastery engine has 7 passing tests. New features implemented: notes, summaries, diagrams (external SVG + mermaid), links, markdown rendering, and content reading.
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes, summaries, diagrams (external SVG + mermaid), links, markdown rendering, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
 
 ## Tech stack
 
@@ -16,6 +16,7 @@ All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subje
 - **Markdown:** `glamour` v2 for rendering markdown in TUI
 - **Diagrams:** `mermaigo` (ASCII), `go-mermaid` (SVG) — both integrated
 - **Parsing:** `gopkg.in/yaml.v3` for YAML frontmatter
+- **Registry:** GitHub-hosted index (`diamondBelema/ken-registry`), HTTP tarball downloads (no git required on user machine)
 
 ## Build & run
 
@@ -39,15 +40,26 @@ cmd/ken/
   notes.go          # ken notes <subject> — manage user notes
   summaries.go      # ken summaries <subject> — manage summaries
   read.go           # ken read <subject> — read lecture notes/content
+  lint.go           # ken lint [subject] — validate content files
+  add.go            # ken add <package> — install study package from registry
+  search.go         # ken search <query> — search registry for packages
+  list.go           # ken list — list installed packages
+  remove.go         # ken remove <package> — uninstall a package
+  package.go        # ken package — create package manifest from local content
+  publish.go        # ken publish — publish packages to registry
+  launchers.go      # shared launcher helpers (diagram opening, link opening)
 internal/
   discovery/        # scan ~/Documents/learn/subjects/
   mastery/          # Bayesian confidence engine + 7 tests
-  parser/           # YAML frontmatter + markdown body parsing
+  parser/           # YAML frontmatter + markdown body parsing + ken.yaml manifest
   progress/         # progress state read/write (XDG data dir)
   study/            # study session logic (flashcard + quiz)
   tui/              # bubbletea models, views, update loops
   render/           # markdown rendering via glamour
   diagram/          # mermaid rendering wrapper
+  lint/             # content validation (parse errors, duplicate IDs, broken refs)
+  registry/         # package registry (client, install, publish, state with file locking)
+  system/           # cross-platform helpers (file opening, path resolution)
 ```
 
 ## Key conventions from the spec
@@ -58,7 +70,7 @@ internal/
 - **IDs must be unique per subject** across all files — parser must error on collision at load time.
 - **Unknown quiz types** (`mcq`, `true_false`, `fill_blank` are valid) → warn + skip, never crash.
 - **Anomaly tolerance** in quiz grading: a miss from a concept with confidence > 0.75 uses likelihood 0.45 (assume slip), not 0.3 (true gap). Don't flatten this.
-- **No generation, no network, no auth** — single local user, single machine.
+- **Study is offline.** The study loop (flashcards, quiz, progress) never touches the network. Only registry operations (search, add, publish) use the network.
 
 ## Data architecture — content vs state separation
 
@@ -66,29 +78,40 @@ internal/
 - `concepts/*.md` — concept definitions with hierarchy, diagrams, links, summaries
 - `flashcards/*.md` — flashcard sets
 - `quizzes/*.md` — quiz sets
+- `notes/` — raw readable content (lecture slides, textbook extracts)
 - Nothing in this tree is ever written to by ken.
 
-**State (writable):** `~/.local/share/ken/`
+**State (writable):** `~/.local/share/ken/` (Linux) / `~/AppData/Local/ken/` (Windows)
 - `<subject>.json` — per-subject progress (concepts, cards, quizzes, notes, summaries)
-- `stats.json` — aggregate stats (Phase 5)
-- Follows XDG Base Directory spec. Content directory stays 100% read-only.
+- `stats.json` — aggregate stats
+- `registry.json` — installed packages state (locked via file lock during writes)
+- Follows XDG Base Directory spec on Linux. Content directory stays 100% read-only.
 
 This means:
 - Git repos containing course materials stay clean (no progress files)
 - Multiple users can study the same content independently
 - Reinstalling/updating content never touches progress
 
-## New features (in progress)
+## Registry / marketplace
 
-- **Notes:** User-created, never interrupt learning flow. Auto-linked to current context. Can link to other notes. Editable/deletable. Markdown content rendered with glamour.
-- **Summaries:** Content-parsed (`## <id>:summary`) + user-created. Both shown when they exist. Scoped to concept/concepts/subject.
-- **Diagrams:** Mermaid syntax, inline source or external file. ASCII quick view (mermaigo) + SVG export (go-mermaid).
-- **Links:** URL + label + type, stored in content files.
-- **Markdown rendering:** glamour v2 for all user-facing text content.
+Packages are hosted on GitHub. The registry index lives at `github.com/diamondBelema/ken-registry` (a single `registry.json`). Package content lives at `github.com/diamondBelema/ken-subjects` (all subjects in one repo).
+
+- `ken search <query>` — search registry by name/description/tags
+- `ken add <author/package>` — download and install a package (HTTP tarball, no git required)
+- `ken list` — show installed packages
+- `ken remove <author/package>` — uninstall and delete content
+- `ken package` — generate `ken.yaml` manifest from local content
+- `ken publish` — push packages to registry (requires `gh` CLI, creates PR)
+
+Package ID format: `author/package` (e.g. `diamondBelema/nucleic-acid`). Manifest format: `ken.yaml` with id, name, version, author, description, license, subjects, concepts, flashcards, tags.
+
+Concurrent installs are protected by file locking (`internal/registry/lock_unix.go`, `lock_windows.go`). The lock covers the entire load-modify-save cycle for `registry.json`.
 
 ## When working on this repo
 
 - Read `ken-spec.md` before writing any code. It defines exact file formats, CLI commands, the full mastery algorithm, acceptance criteria per phase, and out-of-scope items.
-- Check `FEATURE-PLAN.md` for the new features plan.
+- Check `FEATURE-PLAN.md` for the new features plan (completed).
 - Build command: `go build -o ken ./cmd/ken` (entrypoint is `cmd/ken/`, not root).
 - Tests: `go test ./...` — currently 7 tests in `internal/mastery/`.
+- Website: `docs/` directory, served via GitHub Pages. `index.html` is the landing page, `docs.html` is the documentation.
+- CI/CD: GitHub Actions workflow at `.github/workflows/release.yml` builds Linux + Windows binaries on tag push.

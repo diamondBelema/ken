@@ -51,6 +51,28 @@
 
       <h2>Install</h2>
 
+      <h3>Download binary</h3>
+      <p>Pre-built binaries for Linux and Windows:</p>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Platform</th><th>Download</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Linux (x86_64)</td>
+            <td><a href="https://github.com/diamondBelema/ken/releases/latest/download/ken">ken</a></td>
+          </tr>
+          <tr>
+            <td>Windows (x86_64)</td>
+            <td><a href="https://github.com/diamondBelema/ken/releases/latest/download/ken.exe">ken.exe</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <pre><code># Linux
+curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken
+chmod +x ken && mv ken ~/.local/bin/</code></pre>
+
       <h3>From source</h3>
       <pre><code>git clone https://github.com/diamondBelema/ken.git
 cd ken
@@ -196,12 +218,67 @@ questions:
 
       <p><code>ken lint</code> accepts <code>--json</code> for machine-readable output.</p>
 
+      <h3>Registry commands</h3>
+
+      <table class="cmd-table">
+        <thead>
+          <tr>
+            <th>Command</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ken search &lt;query&gt;</code></td>
+            <td>Search the package registry</td>
+          </tr>
+          <tr>
+            <td><code>ken add &lt;author/package&gt;</code></td>
+            <td>Install a study package from the registry</td>
+          </tr>
+          <tr>
+            <td><code>ken list</code></td>
+            <td>List installed packages</td>
+          </tr>
+          <tr>
+            <td><code>ken remove &lt;author/package&gt;</code></td>
+            <td>Uninstall a package</td>
+          </tr>
+          <tr>
+            <td><code>ken package</code></td>
+            <td>Generate ken.yaml manifest from local content</td>
+          </tr>
+          <tr>
+            <td><code>ken publish</code></td>
+            <td>Publish packages to the registry (requires gh CLI)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Package format</h3>
+
+      <p>Packages are identified as <code>author/package</code> (e.g. <code>diamondBelema/nucleic-acid</code>). Each package includes a <code>ken.yaml</code> manifest:</p>
+
+      <div class="file-example">
+        <div class="file-example__name">ken.yaml</div>
+        <pre><code>id: diamondBelema/nucleic-acid
+name: Nucleic Acid
+version: 1.0.1
+author: diamondBelema
+description: "DNA and RNA structure, replication, transcription, translation"
+subjects:
+  - nucleic-acid
+tags: [biochemistry, molecular-biology]</code></pre>
+      </div>
+
+      <p>See the <a href="https://github.com/diamondBelema/ken-registry">registry</a> for available packages.</p>
+
     </div>
   </main>
 
   <footer class="footer">
     <div class="footer__inner">
-      <span>&copy; 2025 ken contributors</span>
+      <span>&copy; 2026 ken contributors</span>
       <ul class="footer__links">
         <li><a href="https://github.com/diamondBelema/ken" rel="noopener">GitHub</a></li>
         <li><a href="https://github.com/diamondBelema/ken/blob/main/LICENSE" rel="noopener">License</a></li>

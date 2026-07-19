@@ -157,6 +157,20 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "n":
 				return m.startNoteInput(), nil
+			case "s":
+				// Show full summary view
+				card := m.session.Current()
+				if card.ConceptID != "" {
+					if concept, ok := m.conceptMap[card.ConceptID]; ok {
+						content := renderFullSummary(&concept, m.progress, card.ConceptID, m.width)
+						if content != "" {
+							m.prevState = m.state
+							m.summaryContent = content
+							m.summaryScroll = 0
+							m.state = fcSummaryView
+						}
+					}
+				}
 			case "q", "esc", "ctrl+c":
 				return m, tea.Quit
 			}
@@ -481,7 +495,7 @@ func (m FlashcardModel) View() string {
 			b.WriteString(cardStyle.Render(cardContent))
 			b.WriteString(renderUserNotes(m.progress, card.ConceptID, card.ID, "card", m.width))
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("  space/enter flip  ·  c concept  ·  n note  ·  q quit"))
+			b.WriteString(helpStyle.Render("  space/enter flip  ·  c concept  ·  s summary  ·  n note  ·  q quit"))
 		}
 
 	case fcShowingBack:

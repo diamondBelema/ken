@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Registry / marketplace system** — share and install study packages from GitHub:
+  - `ken search <query>` — search registry by name, description, or tags
+  - `ken add <author/package>` — download and install a study package (HTTP tarball, no git required)
+  - `ken list` — show installed packages with versions
+  - `ken remove <author/package>` — uninstall a package and delete its content
+  - `ken package` — generate `ken.yaml` manifest from local content
+  - `ken publish` — push packages to registry (requires `gh` CLI)
+- Cross-platform support: Linux (`~/.local/share/ken/`) and Windows (`~/AppData/Local/ken/`)
+- Platform-specific file opening: `xdg-open` on Linux, `cmd /c start` on Windows
+- `ken.yaml` manifest validation in `ken lint`
+- File locking for concurrent `ken add`/`ken remove` (prevents race condition on `registry.json`)
+- Binary releases: pre-built Linux + Windows binaries on GitHub Releases
+
+### Changed
+- Registry state stored in `~/.local/share/ken/registry.json` (new state file)
+- Content directory structure unchanged — registry installs into existing `~/Documents/learn/subjects/`
+
+## [0.3.1] - 2025-07-18
+
+### Added
 - Concept detail view (`c` key) in flashcard and quiz study — shows concept name, description, summary, diagrams, links, note/summary counts
 - Concept detail view uses glamour markdown rendering with scroll support (j/k/g/G)
 - Shared helpers: `renderProgressBar`, `runeTruncate`, `buildConceptMap`, `lookupConcept`, `renderConceptDetail`, `renderUserNotes`

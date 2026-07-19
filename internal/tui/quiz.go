@@ -56,6 +56,7 @@ type QuizModel struct {
 	selected           int
 	correct            bool
 	message            string
+	userAnswerText     string
 	noteInput          textinput.Model
 	noteLinkedTo       *progress.EntityRef
 	noteCycleIdx       int
@@ -154,6 +155,18 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showConceptDetail = true
 				m.conceptDetailScroll = 0
 				return m, nil
+			case "s":
+				// Show full summary view
+				if q.ConceptID != "" {
+					if concept, ok := m.conceptMap[q.ConceptID]; ok {
+						content := renderFullSummary(&concept, m.progress, q.ConceptID, m.width)
+						if content != "" {
+							m.summaryContent = content
+							m.summaryScroll = 0
+							m.state = quizSummaryView
+						}
+					}
+				}
 			}
 			switch q.Type {
 			case "mcq":
@@ -221,6 +234,7 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter", "space":
 				m.showConceptDetail = false
 				m.conceptDetailScroll = 0
+				m.userAnswerText = ""
 				if m.session.Advance() {
 					m.state = quizAnswering
 					m.message = ""
@@ -415,8 +429,14 @@ func (m QuizModel) checkAnswer() QuizModel {
 	switch q.Type {
 	case "mcq":
 		userAnswer = m.selected + 1
+		m.userAnswerText = fmt.Sprintf("%d) %s", m.selected+1, q.Options[m.selected])
 	case "true_false":
 		userAnswer = m.selected == 1
+		if m.selected == 1 {
+			m.userAnswerText = "true"
+		} else {
+			m.userAnswerText = "false"
+		}
 	}
 
 	m.correct = compareAnswer(userAnswer, q.Answer)
@@ -427,7 +447,8 @@ func (m QuizModel) checkAnswer() QuizModel {
 
 func (m QuizModel) checkFillBlank() QuizModel {
 	q := m.session.Current()
-	m.correct = compareAnswer(strings.TrimSpace(m.message), q.Answer)
+	m.userAnswerText = strings.TrimSpace(m.message)
+	m.correct = compareAnswer(m.userAnswerText, q.Answer)
 	m.recordResult()
 	m.state = quizFeedback
 	return m
@@ -578,7 +599,7 @@ func (m QuizModel) View() string {
 			b.WriteString("\n")
 			b.WriteString(renderUserNotes(m.progress, q.ConceptID, q.ID, "quiz", m.width))
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("  c concept  ·  n note  ·  q quit"))
+			b.WriteString(helpStyle.Render("  c concept  ·  s summary  ·  n note  ·  q quit"))
 		}
 
 	case quizFeedback:
@@ -611,13 +632,23 @@ func (m QuizModel) View() string {
 			}
 			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  c close  ·  enter continue  ·  q quit"))
 		} else {
+			// Show the question
+			questionBox := lipgloss.NewStyle().
+				Width(max(m.width-8, 20)).
+				Render(frontStyle.Render(q.Question))
+			b.WriteString(cardStyle.Render(questionBox))
+			b.WriteString("\n")
+
+			// Show user's answer
+			userStyle := lipgloss.NewStyle().Foreground(colorTextBright).Bold(true)
 			if m.correct {
-				b.WriteString("  ")
-				b.WriteString(finishedStyle.Render("Correct"))
+				b.WriteString(fmt.Sprintf("  %s %s\n",
+					lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render("Your answer:"),
+					userStyle.Render(m.userAnswerText)))
 			} else {
-				b.WriteString("  ")
-				b.WriteString(lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Incorrect"))
-				b.WriteString("\n")
+				b.WriteString(fmt.Sprintf("  %s %s\n",
+					lipgloss.NewStyle().Foreground(colorDanger).Bold(true).Render("Your answer:"),
+					userStyle.Render(m.userAnswerText)))
 				b.WriteString(fmt.Sprintf("  %s %s\n",
 					lipgloss.NewStyle().Foreground(colorMuted).Render("correct answer:"),
 					formatAnswer(q)))
@@ -628,7 +659,6 @@ func (m QuizModel) View() string {
 				explainBox := lipgloss.NewStyle().
 					Width(max(m.width-8, 20)).
 					Render(notesStyle.Render(q.Explanation))
-				b.WriteString("\n")
 				b.WriteString(cardStyle.Render(explainBox))
 			}
 

@@ -20,7 +20,7 @@ Success means a user studies consistently, sees their confidence grow on concept
 
 ## Positioning
 
-Terminal-native spaced repetition where AI agents write the content and Bayesian confidence tracks your understanding — no cloud, no GUI, no lock-in.
+Terminal-native spaced repetition where AI agents write the content and Bayesian confidence tracks your understanding — no cloud, no GUI, no lock-in. Study packages shareable via a GitHub-based registry.
 
 ## Brand Personality
 
@@ -36,6 +36,7 @@ Fast, focused, no-nonsense. Like a well-documented library: clear, minimal, gets
 - **Concept-driven mastery**: Cards and quizzes are evidence; understanding lives on concepts. Every interaction updates concept-level Bayesian confidence — the unit of learning is the concept, not the item.
 - **Content/state separation**: Content files stay read-only in the user's folder. Progress state lives locally in XDG data dirs. Clean separation always — git repos stay clean, progress survives reinstalls.
 - **Agent-friendly by design**: Markdown in, markdown out. AI agents can write learning content directly to the content folder without touching a GUI. The format is simple enough for agents to generate correctly.
+- **Shareable via registry**: Study packages can be published to a GitHub-based registry and installed by others with `ken add`. No app store, no account — just a package ID and HTTP.
 - **Keyboard-driven speed**: Every action reachable without a mouse. Fast feedback loops, zero wasted keystrokes, vim-style navigation where it makes sense.
 - **Non-interrupting workflow**: Notes, summaries, and context switches happen without leaving the study flow. The tool adapts to the learner, not the other way around.
 

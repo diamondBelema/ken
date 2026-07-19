@@ -284,17 +284,9 @@ func renderConceptInfo(concept *parser.Concept, prog *progress.Progress, concept
 
 	var parts []string
 
-	// Content summary
-	if concept.Summary != "" {
-		parts = append(parts, fmt.Sprintf("  %s",
-			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("Content Summary:")))
-		parts = append(parts, fmt.Sprintf("    %s", lipgloss.NewStyle().Foreground(colorText).Italic(true).Render(runeTruncate(concept.Summary, width-8))))
-	}
-
 	// User summaries
 	userSummaries := prog.SummariesForConcept(conceptID)
 	if len(userSummaries) > 0 {
-		parts = append(parts, "")
 		parts = append(parts, fmt.Sprintf("  %s",
 			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(fmt.Sprintf("User Summaries (%d):", len(userSummaries)))))
 		for i, s := range userSummaries {
@@ -344,35 +336,33 @@ func renderConceptInfo(concept *parser.Concept, prog *progress.Progress, concept
 	return "\n" + strings.Join(parts, "\n") + "\n"
 }
 
-// renderFullSummary renders the full content summary and user summaries (not truncated)
+// renderFullSummary renders the full content summary and user summaries with glamour markdown
 func renderFullSummary(concept *parser.Concept, prog *progress.Progress, conceptID string, width int) string {
 	if concept == nil {
 		return ""
 	}
 
-	var parts []string
+	var md string
 
 	// Content summary
 	if concept.Summary != "" {
-		parts = append(parts, fmt.Sprintf("# %s — Summary\n", concept.Name))
-		parts = append(parts, concept.Summary)
+		md += fmt.Sprintf("# %s — Summary\n\n", concept.Name)
+		md += concept.Summary + "\n"
 	}
 
 	// User summaries
 	userSummaries := prog.SummariesForConcept(conceptID)
 	if len(userSummaries) > 0 {
-		parts = append(parts, "")
-		parts = append(parts, fmt.Sprintf("## User Summaries (%d)\n", len(userSummaries)))
+		md += fmt.Sprintf("\n## User Summaries (%d)\n\n", len(userSummaries))
 		for i, s := range userSummaries {
-			parts = append(parts, fmt.Sprintf("### %d. %s\n", i+1, s.Title))
-			parts = append(parts, s.Content)
-			parts = append(parts, "")
+			md += fmt.Sprintf("### %d. %s\n\n", i+1, s.Title)
+			md += s.Content + "\n\n"
 		}
 	}
 
-	if len(parts) == 0 {
+	if md == "" {
 		return ""
 	}
 
-	return strings.Join(parts, "\n")
+	return render.RenderMarkdown(md, width-4)
 }

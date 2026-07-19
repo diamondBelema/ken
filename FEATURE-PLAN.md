@@ -1,4 +1,6 @@
-# Feature Plan: Notes, Summaries, Diagrams, Links
+# Feature Plan: Notes, Summaries, Diagrams, Links (COMPLETED)
+
+> **Status: All features implemented.** This document is preserved for reference.
 
 ## Overview
 

@@ -67,6 +67,48 @@ func LintSubject(subjectsDir, subject string) (Report, error) {
 
 	report := Report{Subject: subject}
 
+	// ── Manifest (ken.yaml) ───────────────────────────────────────────────
+	manifestPath := filepath.Join(subjectDir, "ken.yaml")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err == nil {
+		m, err := parser.ParseManifest(manifestData)
+		if err != nil {
+			report.Issues = append(report.Issues, Issue{
+				Severity: SeverityError,
+				File:     "ken.yaml",
+				Message:  err.Error(),
+			})
+		} else {
+			if m.Name == "" {
+				report.Issues = append(report.Issues, Issue{
+					Severity: SeverityWarning,
+					File:     "ken.yaml",
+					Message:  "manifest 'name' is empty",
+				})
+			}
+			if m.Description == "" {
+				report.Issues = append(report.Issues, Issue{
+					Severity: SeverityInfo,
+					File:     "ken.yaml",
+					Message:  "manifest 'description' is empty — recommended for registry publishing",
+				})
+			}
+			if len(m.Tags) == 0 {
+				report.Issues = append(report.Issues, Issue{
+					Severity: SeverityInfo,
+					File:     "ken.yaml",
+					Message:  "no tags defined — recommended for registry discoverability",
+				})
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		report.Issues = append(report.Issues, Issue{
+			Severity: SeverityError,
+			File:     "ken.yaml",
+			Message:  fmt.Sprintf("failed to read ken.yaml: %v", err),
+		})
+	}
+
 	// Per-namespace ID tracking: id -> list of files
 	conceptIDs := map[string][]string{}
 	cardIDs := map[string][]string{}

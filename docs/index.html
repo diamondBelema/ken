@@ -43,7 +43,7 @@
           <p class="hero__sub">Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only. Progress lives in your state directory.</p>
 
           <div class="install-pill">
-            <span class="install-pill__cmd" id="install-cmd">go install github.com/diamondBelema/ken@latest</span>
+            <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken && chmod +x ken</span>
             <button class="install-pill__copy" id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
           </div>
         </div>
@@ -184,13 +184,32 @@
         <div class="section-label">Install</div>
         <h2 class="section-heading">Get started</h2>
       </div>
-      <div class="install-block reveal">
-        <div class="install-block__label">From source</div>
-        <pre><code>git clone https://github.com/diamondBelema/ken.git
+      <div class="install-grid reveal">
+        <div class="install-block">
+          <div class="install-block__label">Download binary</div>
+          <pre><code># Linux (x86_64)
+curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken
+chmod +x ken && mv ken ~/.local/bin/
+
+# Windows (x86_64)
+# Download ken.exe from GitHub Releases</code></pre>
+          <a class="install-block__link" href="https://github.com/diamondBelema/ken/releases/latest">View latest release &rarr;</a>
+        </div>
+        <div class="install-block">
+          <div class="install-block__label">From source</div>
+          <pre><code>git clone https://github.com/diamondBelema/ken.git
 cd ken
 go build -o ken ./cmd/ken
 mv ken ~/.local/bin/</code></pre>
-        <a class="install-block__link" href="docs.html">Read the full docs &rarr;</a>
+          <a class="install-block__link" href="docs.html">Read the full docs &rarr;</a>
+        </div>
+      </div>
+      <div class="install-block install-block--registry reveal" style="margin-top: 16px;">
+        <div class="install-block__label">Install study packages</div>
+        <pre><code>ken search nucleic                    # search the registry
+ken add diamondBelema/nucleic-acid   # install a package
+ken list                             # show installed packages</code></pre>
+        <a class="install-block__link" href="https://github.com/diamondBelema/ken-registry">Browse the registry &rarr;</a>
       </div>
     </div>
   </section>
@@ -198,7 +217,7 @@ mv ken ~/.local/bin/</code></pre>
 
   <footer class="footer">
     <div class="footer__inner">
-      <span>&copy; 2025 ken contributors</span>
+      <span>&copy; 2026 ken contributors</span>
       <ul class="footer__links">
         <li><a href="https://github.com/diamondBelema/ken" rel="noopener">GitHub</a></li>
         <li><a href="https://github.com/diamondBelema/ken/blob/main/LICENSE" rel="noopener">License</a></li>

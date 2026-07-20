@@ -53,6 +53,7 @@ type QuizModel struct {
 	concepts           []parser.Concept
 	conceptMap         map[string]parser.Concept
 	state              quizState
+	prevState          quizState
 	selected           int
 	correct            bool
 	message            string
@@ -99,7 +100,7 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "q", "esc", "s":
-				m.state = quizFeedback
+				m.state = m.prevState
 				return m, nil
 			case "j", "down":
 				m.summaryScroll++
@@ -182,6 +183,7 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if content != "" {
 							m.summaryContent = content
 							m.summaryScroll = 0
+							m.prevState = m.state
 							m.state = quizSummaryView
 						}
 					}
@@ -301,6 +303,7 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if content != "" {
 							m.summaryContent = content
 							m.summaryScroll = 0
+							m.prevState = m.state
 							m.state = quizSummaryView
 						}
 					}

@@ -33,6 +33,7 @@ type NotesModel struct {
 	noteIDs      []string
 	selected     int
 	scrollTop    int
+	detailScroll int
 	viewWidth    int
 	viewHeight   int
 	editInput    textarea.Model
@@ -205,10 +206,21 @@ func (m NotesModel) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "q":
 			m.state = notesList
+			m.detailScroll = 0
 		case "e":
 			return m.startEdit(), nil
 		case "x":
 			m.state = notesDeleteConfirm
+		case "j", "down":
+			m.detailScroll++
+		case "k", "up":
+			if m.detailScroll > 0 {
+				m.detailScroll--
+			}
+		case "g":
+			m.detailScroll = 0
+		case "G":
+			m.detailScroll = 999999
 		}
 	}
 	return m, nil
@@ -526,14 +538,35 @@ func (m NotesModel) View() string {
 				b.WriteString(titleStyle.Render(fmt.Sprintf("  %s", note.Title)))
 				b.WriteString("\n\n")
 			}
-			b.WriteString(render.RenderMarkdown(note.Content, m.viewWidth-4))
+			content := render.RenderMarkdown(note.Content, m.viewWidth-4)
+			lines := strings.Split(content, "\n")
+			visible := m.viewHeight - 5
+			if visible < 1 {
+				visible = 10
+			}
+			maxScroll := len(lines) - visible
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.detailScroll > maxScroll {
+				m.detailScroll = maxScroll
+			}
+			start := m.detailScroll
+			end := start + visible
+			if end > len(lines) {
+				end = len(lines)
+			}
+			for _, line := range lines[start:end] {
+				b.WriteString(line)
+				b.WriteString("\n")
+			}
 			b.WriteString("\n")
 			if note.LinkedTo != nil {
 				b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render(fmt.Sprintf("  linked to: %s %s", note.LinkedTo.Type, note.LinkedTo.ID)))
 				b.WriteString("\n")
 			}
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("  e edit  ·  x delete  ·  esc back"))
+			b.WriteString(helpStyle.Render("  j/k scroll  ·  g/G top/bottom  ·  e edit  ·  x delete  ·  esc back"))
 		}
 
 	case notesEdit:

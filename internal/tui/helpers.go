@@ -265,12 +265,17 @@ func renderUserNotes(prog *progress.Progress, conceptID, itemID, itemType string
 				link = "card"
 			case "quiz":
 				link = "quiz"
+			case "note":
+				link = "note"
 			}
 		}
-		truncated := runeTruncate(note.Content, width-8)
+		title := note.Title
+		if title == "" {
+			title = runeTruncate(note.Content, width-16)
+		}
 		b.WriteString(fmt.Sprintf("    %s %s\n",
 			lipgloss.NewStyle().Foreground(colorMuted).Render(fmt.Sprintf("[%d·%s]", i+1, link)),
-			lipgloss.NewStyle().Foreground(colorText).Render(truncated)))
+			lipgloss.NewStyle().Foreground(colorText).Render(runeTruncate(title, width-12))))
 	}
 
 	return b.String()

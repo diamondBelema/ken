@@ -218,7 +218,7 @@ func (m NotesModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			content := m.editInput.Value()
 			if strings.TrimSpace(content) != "" {
-				m.progress.EditNote(m.editID, content)
+				m.progress.EditNote(m.editID, "", content)
 			}
 			m.state = notesDetail
 			m.editInput.SetValue("")
@@ -262,7 +262,7 @@ func (m NotesModel) updateNew(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			content := m.editInput.Value()
 			if strings.TrimSpace(content) != "" {
-				m.progress.AddNote(content, m.noteLinkedTo)
+				m.progress.AddNote("", content, m.noteLinkedTo)
 				m.refreshNotes()
 			}
 			m.state = notesList
@@ -412,13 +412,16 @@ func (m NotesModel) View() string {
 					}
 				}
 
-				preview := truncate(note.Content, 60)
+				title := note.Title
+				if title == "" {
+					title = truncate(note.Content, 60)
+				}
 
 				if i == m.selected {
-					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", preview, linkLabel)))
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", truncate(title, 50), linkLabel)))
 					b.WriteString("\n")
 				} else {
-					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(preview), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
+					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(truncate(title, 50)), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
 				}
 			}
 		}
@@ -448,12 +451,15 @@ func (m NotesModel) View() string {
 				if note.LinkedTo != nil {
 					linkLabel = fmt.Sprintf("→ %s", note.LinkedTo.ID)
 				}
-				preview := truncate(note.Content, 60)
+				title := note.Title
+				if title == "" {
+					title = truncate(note.Content, 60)
+				}
 				if i == m.selected {
-					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", preview, linkLabel)))
+					b.WriteString(listItemSelectedStyle.Render(fmt.Sprintf("  %s  %s", truncate(title, 50), linkLabel)))
 					b.WriteString("\n")
 				} else {
-					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(preview), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
+					b.WriteString(fmt.Sprintf("  %s  %s\n", listItemStyle.Render(truncate(title, 50)), lipgloss.NewStyle().Foreground(colorMuted).Render(linkLabel)))
 				}
 			}
 		} else {
@@ -465,6 +471,10 @@ func (m NotesModel) View() string {
 	case notesDetail:
 		if len(m.notes) > 0 {
 			note := m.notes[m.selected]
+			if note.Title != "" {
+				b.WriteString(titleStyle.Render(fmt.Sprintf("  %s", note.Title)))
+				b.WriteString("\n\n")
+			}
 			b.WriteString(render.RenderMarkdown(note.Content, m.viewWidth-4))
 			b.WriteString("\n")
 			if note.LinkedTo != nil {

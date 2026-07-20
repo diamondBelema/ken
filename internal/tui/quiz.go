@@ -402,7 +402,7 @@ func (m QuizModel) updateNoteInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			content := m.noteInput.Value()
 			if strings.TrimSpace(content) != "" {
-				m.progress.AddNote(content, m.noteLinkedTo)
+				m.progress.AddNote("", content, m.noteLinkedTo)
 			}
 			m.state = quizFeedback
 			m.noteInput.SetValue("")

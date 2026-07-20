@@ -34,6 +34,7 @@ type EntityRef struct {
 }
 
 type Note struct {
+	Title     string     `json:"title,omitempty"`
 	Content   string     `json:"content"`
 	LinkedTo  *EntityRef `json:"linked_to,omitempty"`
 	CreatedAt int64      `json:"created_at"`
@@ -121,6 +122,14 @@ func Load(path string) (*Progress, error) {
 		p.NextSummaryID = computeMaxID(p.Summaries, "s-") + 1
 	}
 
+	// Migrate notes without titles - auto-generate from first line
+	for id, note := range p.Notes {
+		if note.Title == "" && note.Content != "" {
+			note.Title = generateNoteTitle(note.Content)
+			p.Notes[id] = note
+		}
+	}
+
 	return &p, nil
 }
 
@@ -180,11 +189,15 @@ func ConceptIDs(p *Progress) []string {
 	return ids
 }
 
-func (p *Progress) AddNote(content string, linkedTo *EntityRef) string {
+func (p *Progress) AddNote(title, content string, linkedTo *EntityRef) string {
 	id := fmt.Sprintf("n-%d", p.NextNoteID)
 	p.NextNoteID++
 	now := time.Now().Unix()
+	if title == "" {
+		title = generateNoteTitle(content)
+	}
 	p.Notes[id] = Note{
+		Title:     title,
 		Content:   content,
 		LinkedTo:  linkedTo,
 		CreatedAt: now,
@@ -193,11 +206,15 @@ func (p *Progress) AddNote(content string, linkedTo *EntityRef) string {
 	return id
 }
 
-func (p *Progress) EditNote(id, content string) error {
+func (p *Progress) EditNote(id, title, content string) error {
 	note, exists := p.Notes[id]
 	if !exists {
 		return fmt.Errorf("note %s not found", id)
 	}
+	if title == "" {
+		title = generateNoteTitle(content)
+	}
+	note.Title = title
 	note.Content = content
 	note.UpdatedAt = time.Now().Unix()
 	p.Notes[id] = note
@@ -304,4 +321,17 @@ func (p *Progress) SubjectSummaries(subject string) []Summary {
 		}
 	}
 	return summaries
+}
+
+// generateNoteTitle extracts a title from note content (first line, truncated)
+func generateNoteTitle(content string) string {
+	lines := strings.SplitN(content, "\n", 2)
+	title := strings.TrimSpace(lines[0])
+	if len(title) > 60 {
+		title = title[:57] + "..."
+	}
+	if title == "" {
+		title = "Untitled Note"
+	}
+	return title
 }

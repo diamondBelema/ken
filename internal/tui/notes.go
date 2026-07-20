@@ -300,16 +300,15 @@ func (m NotesModel) updateNew(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *NotesModel) cycleLinkTarget() {
 	targets := []*progress.EntityRef{nil}
 
+	// Add concepts
 	sorted := sortedConceptsByHierarchy(m.concepts)
-	conceptMap := buildConceptMap(m.concepts)
 	for _, c := range sorted {
-		depth := conceptDepth(conceptMap, c.ID)
-		indent := ""
-		if depth > 0 {
-			indent = strings.Repeat("  ", depth) + "├─ "
-		}
-		_ = indent
 		targets = append(targets, &progress.EntityRef{Type: "concept", ID: c.ID})
+	}
+
+	// Add existing notes
+	for id := range m.progress.Notes {
+		targets = append(targets, &progress.EntityRef{Type: "note", ID: id})
 	}
 
 	m.noteCycleIdx = (m.noteCycleIdx + 1) % len(targets)
@@ -326,6 +325,41 @@ func (m *NotesModel) startEdit() NotesModel {
 	m.editInput.SetValue(note.Content)
 	m.editInput.Focus()
 	return *m
+}
+
+func (m *NotesModel) getLinkTargetLabel() string {
+	if m.noteLinkedTo == nil {
+		return "unlinked"
+	}
+
+	switch m.noteLinkedTo.Type {
+	case "concept":
+		// Find concept name
+		for _, c := range m.concepts {
+			if c.ID == m.noteLinkedTo.ID {
+				conceptMap := buildConceptMap(m.concepts)
+				d := conceptDepth(conceptMap, c.ID)
+				indent := ""
+				if d > 0 {
+					indent = strings.Repeat("  ", d) + "├─ "
+				}
+				return indent + c.Name + " (" + c.ID + ")"
+			}
+		}
+		return m.noteLinkedTo.ID
+	case "note":
+		// Find note title
+		if note, ok := m.progress.Notes[m.noteLinkedTo.ID]; ok {
+			title := note.Title
+			if title == "" {
+				title = truncate(note.Content, 40)
+			}
+			return title + " (" + m.noteLinkedTo.ID + ")"
+		}
+		return m.noteLinkedTo.ID
+	default:
+		return m.noteLinkedTo.ID
+	}
 }
 
 func (m *NotesModel) startNew() NotesModel {
@@ -513,14 +547,7 @@ func (m NotesModel) View() string {
 	case notesNew:
 		linkLabel := "unlinked"
 		if m.noteLinkedTo != nil {
-			linkLabel = m.noteLinkedTo.ID
-			if m.noteLinkedTo.Type == "concept" {
-				conceptMap := buildConceptMap(m.concepts)
-				d := conceptDepth(conceptMap, m.noteLinkedTo.ID)
-				if d > 0 {
-					linkLabel = strings.Repeat("  ", d) + "├─ " + linkLabel
-				}
-			}
+			linkLabel = m.getLinkTargetLabel()
 		}
 		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  new note  → %s", linkLabel)))
 		b.WriteString("\n")

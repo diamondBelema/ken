@@ -346,6 +346,13 @@ func (m *FlashcardModel) cycleLinkTarget() {
 	targets := []*progress.EntityRef{}
 
 	if card.ConceptID != "" {
+		// Find concept name
+		for _, c := range m.concepts {
+			if c.ID == card.ConceptID {
+				_ = c.Name
+				break
+			}
+		}
 		targets = append(targets, &progress.EntityRef{Type: "concept", ID: card.ConceptID})
 	}
 	targets = append(targets, &progress.EntityRef{Type: "card", ID: card.ID})
@@ -353,6 +360,26 @@ func (m *FlashcardModel) cycleLinkTarget() {
 
 	m.noteCycleIdx = (m.noteCycleIdx + 1) % len(targets)
 	m.noteLinkedTo = targets[m.noteCycleIdx]
+}
+
+func (m *FlashcardModel) getLinkTargetLabel() string {
+	if m.noteLinkedTo == nil {
+		return "unlinked"
+	}
+
+	switch m.noteLinkedTo.Type {
+	case "concept":
+		for _, c := range m.concepts {
+			if c.ID == m.noteLinkedTo.ID {
+				return c.Name + " (" + c.ID + ")"
+			}
+		}
+		return m.noteLinkedTo.ID
+	case "card":
+		return "card " + m.noteLinkedTo.ID
+	default:
+		return m.noteLinkedTo.ID
+	}
 }
 
 func (m *FlashcardModel) clampSummaryScroll() {
@@ -602,12 +629,7 @@ func (m FlashcardModel) View() string {
 
 		linkLabel := "unlinked"
 		if m.noteLinkedTo != nil {
-			switch m.noteLinkedTo.Type {
-			case "concept":
-				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
-			case "card":
-				linkLabel = fmt.Sprintf("→ %s", m.noteLinkedTo.ID)
-			}
+			linkLabel = m.getLinkTargetLabel()
 		}
 
 		cardContent := lipgloss.NewStyle().

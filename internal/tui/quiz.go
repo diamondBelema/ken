@@ -380,6 +380,26 @@ func (m *QuizModel) cycleLinkTarget() {
 	m.noteLinkedTo = targets[m.noteCycleIdx]
 }
 
+func (m *QuizModel) getLinkTargetLabel() string {
+	if m.noteLinkedTo == nil {
+		return "unlinked"
+	}
+
+	switch m.noteLinkedTo.Type {
+	case "concept":
+		for _, c := range m.concepts {
+			if c.ID == m.noteLinkedTo.ID {
+				return c.Name + " (" + c.ID + ")"
+			}
+		}
+		return m.noteLinkedTo.ID
+	case "quiz":
+		return "quiz " + m.noteLinkedTo.ID
+	default:
+		return m.noteLinkedTo.ID
+	}
+}
+
 func (m *QuizModel) clampSummaryScroll() {
 	lines := strings.Split(m.summaryContent, "\n")
 	visible := m.height - 4

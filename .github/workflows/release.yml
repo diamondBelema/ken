@@ -15,10 +15,10 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            artifact: ken
+            artifact: ken-linux-amd64
           - goos: windows
             goarch: amd64
-            artifact: ken.exe
+            artifact: ken-windows-amd64.exe
 
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +32,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
-        run: go build -ldflags="-s -w" -o ${{ matrix.artifact }} ./cmd/ken
+        run: go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ${{ matrix.artifact }} ./cmd/ken
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -51,5 +51,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            ken/ken
-            ken.exe/ken.exe
+            ken-linux-amd64
+            ken-windows-amd64.exe

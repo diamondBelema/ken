@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	registryIndexURL = "https://raw.githubusercontent.com/diamondBelema/ken-registry/main/registry.json"
+	registryIndexURL = "https://api.github.com/repos/diamondBelema/ken-registry/contents/registry.json"
 	stateFileName    = "registry.json"
 )
 

@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 )
 
 const releasesAPI = "https://api.github.com/repos/diamondBelema/ken/releases/latest"
+const repoURL = "https://github.com/diamondBelema/ken.git"
 
 type githubRelease struct {
 	TagName string `json:"tag_name"`
@@ -66,11 +69,101 @@ func expectedAssetName() string {
 	return fmt.Sprintf("ken-%s-%s", osName, arch)
 }
 
+func goVersion() string {
+	out, err := exec.Command("go", "version").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func runCmd(dir string, name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+func buildFromSource(latestVersion string) error {
+	goPath := goVersion()
+	if goPath == "" {
+		return fmt.Errorf(`no pre-built binary for %s/%s in release %s
+Available: %s
+
+Install Go to auto-build from source: https://go.dev/dl/`, runtime.GOOS, runtime.GOARCH, expectedAssetName(), "https://github.com/diamondBelema/ken")
+	}
+
+	fmt.Printf("Found %s\n", goPath)
+	fmt.Println("Building from source...")
+
+	tmpDir, err := os.MkdirTemp("", "ken-update-*")
+	if err != nil {
+		return fmt.Errorf("cannot create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fmt.Println("  Cloning repository...")
+	if _, err := runCmd(tmpDir, "git", "clone", "--depth=1", "--branch", "master", repoURL, "ken-src"); err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+	srcDir := filepath.Join(tmpDir, "ken-src")
+
+	fmt.Println("  Building binary...")
+	if _, err := runCmd(srcDir, "go", "build", "-o", "ken-bin", "./cmd/ken"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot find current executable: %w", err)
+	}
+
+	binPath := filepath.Join(srcDir, "ken-bin")
+	tmpPath := exePath + ".tmp"
+
+	if err := copyFile(binPath, tmpPath); err != nil {
+		return fmt.Errorf("cannot copy binary: %w", err)
+	}
+
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("cannot make executable: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, exePath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("cannot replace binary: %w (you may need to run with sudo)", err)
+	}
+
+	fmt.Printf("\nUpdated to %s (built from source)\n", latestVersion)
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
+}
+
 var selfUpdateCmd = &cobra.Command{
 	Use:   "self-update",
 	Short: "Update ken to the latest version",
 	Long: `Check GitHub Releases for the latest version of ken and replace
-the current binary.
+the current binary. If no pre-built binary exists for your platform,
+automatically builds from source (requires Go).
 
 Examples:
   ken self-update`,
@@ -103,8 +196,7 @@ Examples:
 		}
 
 		if downloadURL == "" {
-			return fmt.Errorf("no binary found for %s/%s in release %s\nAvailable: %s",
-				runtime.GOOS, runtime.GOARCH, release.TagName, listAssetNames(release))
+			return buildFromSource(latestVersion)
 		}
 
 		fmt.Printf("\nDownloading %s...\n", assetName)
@@ -115,13 +207,11 @@ Examples:
 		}
 		defer reader.Close()
 
-		// Get current executable path
 		exePath, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("cannot find current executable: %w", err)
 		}
 
-		// Write to temp file first, then rename (atomic on same filesystem)
 		tmpPath := exePath + ".tmp"
 		out, err := os.Create(tmpPath)
 		if err != nil {
@@ -135,13 +225,11 @@ Examples:
 		}
 		out.Close()
 
-		// Make executable
 		if err := os.Chmod(tmpPath, 0755); err != nil {
 			os.Remove(tmpPath)
 			return fmt.Errorf("cannot make executable: %w", err)
 		}
 
-		// Replace
 		if err := os.Rename(tmpPath, exePath); err != nil {
 			os.Remove(tmpPath)
 			return fmt.Errorf("cannot replace binary: %w (you may need to run with sudo)", err)

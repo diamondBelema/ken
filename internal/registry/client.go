@@ -3,6 +3,7 @@ package registry
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,18 @@ func FetchIndexFromURL(url string) (RegistryIndex, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return RegistryIndex{}, fmt.Errorf("failed to read registry response: %w", err)
+	}
+
+	// GitHub API returns base64-encoded content
+	var apiResp struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err == nil && apiResp.Content != "" {
+		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(apiResp.Content))
+		if err != nil {
+			return RegistryIndex{}, fmt.Errorf("failed to decode registry content: %w", err)
+		}
+		body = decoded
 	}
 
 	var index RegistryIndex

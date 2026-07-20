@@ -6,7 +6,7 @@
 
 ## Project state
 
-All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes, summaries, diagrams (external SVG + mermaid), links, markdown rendering, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes (with titles, tags, multi-line textarea editor, markdown rendering), summaries, diagrams (external SVG + mermaid), links, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
 
 ## Tech stack
 

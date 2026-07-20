@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/parser"
@@ -35,32 +35,35 @@ type NotesModel struct {
 	scrollTop    int
 	viewWidth    int
 	viewHeight   int
-	editInput    textinput.Model
+	editInput    textarea.Model
 	editID       string
 	filter       string
-	searchInput  textinput.Model
+	searchInput  textarea.Model
 	noteLinkedTo *progress.EntityRef
 	noteCycleIdx int
 }
 
 func NewNotesModel(prog *progress.Progress, concepts []parser.Concept, subject string) NotesModel {
-	ei := textinput.New()
-	ei.Placeholder = "Edit note..."
+	ei := textarea.New()
+	ei.Placeholder = "Type your note here..."
 	ei.Focus()
-	ei.CharLimit = 1000
-	ei.Width = 60
+	ei.CharLimit = 5000
+	ei.SetWidth(70)
+	ei.SetHeight(8)
+	ei.ShowLineNumbers = false
 
-	si := textinput.New()
+	si := textarea.New()
 	si.Placeholder = "Search notes..."
 	si.CharLimit = 100
-	si.Width = 40
+	si.SetWidth(40)
+	si.SetHeight(1)
 
 	return NotesModel{
-		progress:  prog,
-		concepts:  concepts,
-		subject:   subject,
-		state:     notesList,
-		editInput: ei,
+		progress:    prog,
+		concepts:    concepts,
+		subject:     subject,
+		state:       notesList,
+		editInput:   ei,
 		searchInput: si,
 	}
 }
@@ -212,10 +215,9 @@ func (m NotesModel) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m NotesModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "enter":
+		case "esc":
 			content := m.editInput.Value()
 			if strings.TrimSpace(content) != "" {
 				m.progress.EditNote(m.editID, "", content)
@@ -224,9 +226,14 @@ func (m NotesModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editInput.SetValue("")
 			m.refreshNotes()
 			return m, nil
-		case "esc":
+		case "ctrl+s":
+			content := m.editInput.Value()
+			if strings.TrimSpace(content) != "" {
+				m.progress.EditNote(m.editID, "", content)
+			}
 			m.state = notesDetail
 			m.editInput.SetValue("")
+			m.refreshNotes()
 			return m, nil
 		}
 	}
@@ -256,10 +263,9 @@ func (m NotesModel) updateDeleteConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m NotesModel) updateNew(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "enter":
+		case "esc":
 			content := m.editInput.Value()
 			if strings.TrimSpace(content) != "" {
 				m.progress.AddNote("", content, m.noteLinkedTo)
@@ -270,7 +276,12 @@ func (m NotesModel) updateNew(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.noteLinkedTo = nil
 			m.noteCycleIdx = 0
 			return m, nil
-		case "esc":
+		case "ctrl+s":
+			content := m.editInput.Value()
+			if strings.TrimSpace(content) != "" {
+				m.progress.AddNote("", content, m.noteLinkedTo)
+				m.refreshNotes()
+			}
 			m.state = notesList
 			m.editInput.SetValue("")
 			m.noteLinkedTo = nil
@@ -487,10 +498,10 @@ func (m NotesModel) View() string {
 
 	case notesEdit:
 		b.WriteString(noteInputHeaderStyle.Render("  edit note"))
-		b.WriteString("\n  ")
+		b.WriteString("\n")
 		b.WriteString(m.editInput.View())
-		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("  enter save  ·  esc cancel"))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  esc save  ·  enter newline  ·  ctrl+s save"))
 
 	case notesDeleteConfirm:
 		b.WriteString(lipgloss.NewStyle().
@@ -512,10 +523,10 @@ func (m NotesModel) View() string {
 			}
 		}
 		b.WriteString(noteInputHeaderStyle.Render(fmt.Sprintf("  new note  → %s", linkLabel)))
-		b.WriteString("\n  ")
+		b.WriteString("\n")
 		b.WriteString(m.editInput.View())
-		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("  tab cycle link target  ·  enter save  ·  esc cancel"))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  tab cycle link target  ·  esc save  ·  enter newline  ·  ctrl+s save"))
 	}
 
 	return b.String()

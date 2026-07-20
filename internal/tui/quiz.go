@@ -148,6 +148,25 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 			}
+			// fill_blank: single characters go to input, not shortcuts
+			if q.Type == "fill_blank" {
+				if msg.String() == "enter" && m.message != "" {
+					m = m.checkFillBlank()
+					return m, nil
+				}
+				if msg.String() == "backspace" {
+					runes := []rune(m.message)
+					if len(runes) > 0 {
+						m.message = string(runes[:len(runes)-1])
+					}
+					return m, nil
+				}
+				if len(msg.String()) == 1 {
+					m.message += msg.String()
+					return m, nil
+				}
+				// non-printable keys fall through to shortcuts below
+			}
 			switch msg.String() {
 			case "n":
 				return m.startNoteInput(), nil
@@ -184,22 +203,6 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "f", "F":
 					m.selected = 0
 					m = m.checkAnswer()
-					return m, nil
-				}
-			case "fill_blank":
-				if msg.String() == "enter" && m.message != "" {
-					m = m.checkFillBlank()
-					return m, nil
-				}
-				if msg.String() == "backspace" {
-					runes := []rune(m.message)
-					if len(runes) > 0 {
-						m.message = string(runes[:len(runes)-1])
-					}
-					return m, nil
-				}
-				if len(msg.String()) == 1 {
-					m.message += msg.String()
 					return m, nil
 				}
 			}

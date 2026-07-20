@@ -43,7 +43,7 @@
           <p class="hero__sub">Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only. Progress lives in your state directory.</p>
 
           <div class="install-pill">
-            <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken && chmod +x ken</span>
+            <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64 && chmod +x ken-linux-amd64 && mv ken-linux-amd64 ken</span>
             <button class="install-pill__copy" id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
           </div>
         </div>
@@ -188,11 +188,11 @@
         <div class="install-block">
           <div class="install-block__label">Download binary</div>
           <pre><code># Linux (x86_64)
-curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken
-chmod +x ken && mv ken ~/.local/bin/
+curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64
+chmod +x ken-linux-amd64 && mv ken-linux-amd64 ~/.local/bin/ken
 
 # Windows (x86_64)
-# Download ken.exe from GitHub Releases</code></pre>
+# Download ken-windows-amd64.exe from GitHub Releases</code></pre>
           <a class="install-block__link" href="https://github.com/diamondBelema/ken/releases/latest">View latest release &rarr;</a>
         </div>
         <div class="install-block">

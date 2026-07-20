@@ -10,13 +10,13 @@ Download the latest release for your platform:
 
 | Platform | Download |
 |----------|----------|
-| Linux (x86_64) | [ken](https://github.com/diamondBelema/ken/releases/latest/download/ken) |
-| Windows (x86_64) | [ken.exe](https://github.com/diamondBelema/ken/releases/latest/download/ken.exe) |
+| Linux (x86_64) | [ken-linux-amd64](https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64) |
+| Windows (x86_64) | [ken-windows-amd64.exe](https://github.com/diamondBelema/ken/releases/latest/download/ken-windows-amd64.exe) |
 
 ```bash
-# Linux — make executable and move to PATH
-chmod +x ken
-mv ken ~/.local/bin/
+# Linux — download, make executable, move to PATH
+curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64
+chmod +x ken-linux-amd64 && mv ken-linux-amd64 ~/.local/bin/ken
 
 # Windows — move ken.exe to a directory in your PATH
 ```

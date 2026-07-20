@@ -306,8 +306,11 @@ func (m *NotesModel) cycleLinkTarget() {
 		targets = append(targets, &progress.EntityRef{Type: "concept", ID: c.ID})
 	}
 
-	// Add existing notes
+	// Add existing notes (skip self when editing)
 	for id := range m.progress.Notes {
+		if m.state == notesEdit && id == m.editID {
+			continue
+		}
 		targets = append(targets, &progress.EntityRef{Type: "note", ID: id})
 	}
 
@@ -382,7 +385,10 @@ func (m *NotesModel) refreshNotes() {
 			}
 		}
 		if m.searchInput.Value() != "" {
-			if !strings.Contains(strings.ToLower(note.Content), strings.ToLower(m.searchInput.Value())) {
+			query := strings.ToLower(m.searchInput.Value())
+			titleMatch := strings.Contains(strings.ToLower(note.Title), query)
+			contentMatch := strings.Contains(strings.ToLower(note.Content), query)
+			if !titleMatch && !contentMatch {
 				continue
 			}
 		}

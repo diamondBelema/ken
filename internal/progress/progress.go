@@ -37,6 +37,7 @@ type Note struct {
 	Title     string     `json:"title,omitempty"`
 	Content   string     `json:"content"`
 	LinkedTo  *EntityRef `json:"linked_to,omitempty"`
+	Tags      []string   `json:"tags,omitempty"`
 	CreatedAt int64      `json:"created_at"`
 	UpdatedAt int64      `json:"updated_at"`
 }
@@ -189,7 +190,7 @@ func ConceptIDs(p *Progress) []string {
 	return ids
 }
 
-func (p *Progress) AddNote(title, content string, linkedTo *EntityRef) string {
+func (p *Progress) AddNote(title, content string, linkedTo *EntityRef, tags ...string) string {
 	id := fmt.Sprintf("n-%d", p.NextNoteID)
 	p.NextNoteID++
 	now := time.Now().Unix()
@@ -200,13 +201,14 @@ func (p *Progress) AddNote(title, content string, linkedTo *EntityRef) string {
 		Title:     title,
 		Content:   content,
 		LinkedTo:  linkedTo,
+		Tags:      tags,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 	return id
 }
 
-func (p *Progress) EditNote(id, title, content string) error {
+func (p *Progress) EditNote(id, title, content string, tags ...string) error {
 	note, exists := p.Notes[id]
 	if !exists {
 		return fmt.Errorf("note %s not found", id)
@@ -216,6 +218,9 @@ func (p *Progress) EditNote(id, title, content string) error {
 	}
 	note.Title = title
 	note.Content = content
+	if len(tags) > 0 {
+		note.Tags = tags
+	}
 	note.UpdatedAt = time.Now().Unix()
 	p.Notes[id] = note
 	return nil

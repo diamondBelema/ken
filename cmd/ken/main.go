@@ -9,12 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:   "ken",
 	Short: "Terminal-based spaced-repetition study harness",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		for {
-			m := tui.NewDashboardModel()
+			m := tui.NewDashboardModel(version)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 			finalModel, err := p.Run()
 			if err != nil {

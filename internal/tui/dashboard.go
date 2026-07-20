@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,6 +50,8 @@ type DashboardModel struct {
 	filterInput    textinput.Model
 	filterText     string
 	result         DashboardResult
+	currentVersion string
+	latestVersion  string
 }
 
 type dashboardQuitMsg struct {
@@ -66,14 +70,19 @@ type dashboardErrMsg struct {
 	err error
 }
 
-func NewDashboardModel() DashboardModel {
+type dashboardUpdateMsg struct {
+	latestVersion string
+}
+
+func NewDashboardModel(version string) DashboardModel {
 	ti := textinput.New()
 	ti.Placeholder = "filter subjects..."
 	ti.Focus()
 	ti.CharLimit = 40
 
 	return DashboardModel{
-		filterInput: ti,
+		filterInput:    ti,
+		currentVersion: version,
 	}
 }
 
@@ -82,45 +91,48 @@ func (m DashboardModel) Result() DashboardResult {
 }
 
 func (m DashboardModel) Init() tea.Cmd {
-	return func() tea.Msg {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return dashboardErrMsg{err}
-		}
-
-		subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
-		subjects, err := discovery.Discover(subjectsDir)
-		if err != nil {
-			return dashboardErrMsg{err}
-		}
-
-		progData := make(map[string]*progress.Progress)
-		conceptData := make(map[string][]parser.Concept)
-		cardCounts := make(map[string]int)
-		quizCounts := make(map[string]int)
-		for _, s := range subjects {
-			progPath, err := progress.SubjectPath(s.Name)
+	return tea.Batch(
+		func() tea.Msg {
+			home, err := os.UserHomeDir()
 			if err != nil {
-				continue
+				return dashboardErrMsg{err}
 			}
-			prog, err := progress.Load(progPath)
+
+			subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
+			subjects, err := discovery.Discover(subjectsDir)
 			if err != nil {
-				continue
-			}
-			progData[s.Name] = prog
-
-			concepts, err := study.LoadConcepts(subjectsDir, s.Name)
-			if err == nil {
-				conceptData[s.Name] = concepts
-				progress.InitConcepts(prog, concepts)
+				return dashboardErrMsg{err}
 			}
 
-			cardCounts[s.Name] = countFlashcards(subjectsDir, s.Name)
-			quizCounts[s.Name] = countQuizzes(subjectsDir, s.Name)
-		}
+			progData := make(map[string]*progress.Progress)
+			conceptData := make(map[string][]parser.Concept)
+			cardCounts := make(map[string]int)
+			quizCounts := make(map[string]int)
+			for _, s := range subjects {
+				progPath, err := progress.SubjectPath(s.Name)
+				if err != nil {
+					continue
+				}
+				prog, err := progress.Load(progPath)
+				if err != nil {
+					continue
+				}
+				progData[s.Name] = prog
 
-		return dashboardLoadedMsg{subjects: subjects, progData: progData, conceptData: conceptData, cardCounts: cardCounts, quizCounts: quizCounts}
-	}
+				concepts, err := study.LoadConcepts(subjectsDir, s.Name)
+				if err == nil {
+					conceptData[s.Name] = concepts
+					progress.InitConcepts(prog, concepts)
+				}
+
+				cardCounts[s.Name] = countFlashcards(subjectsDir, s.Name)
+				quizCounts[s.Name] = countQuizzes(subjectsDir, s.Name)
+			}
+
+			return dashboardLoadedMsg{subjects: subjects, progData: progData, conceptData: conceptData, cardCounts: cardCounts, quizCounts: quizCounts}
+		},
+		checkForUpdate(m.currentVersion),
+	)
 }
 
 func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -133,6 +145,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.quizCounts = msg.quizCounts
 	case dashboardErrMsg:
 		m.err = msg.err
+	case dashboardUpdateMsg:
+		if msg.latestVersion != "" {
+			m.latestVersion = msg.latestVersion
+		}
 	case tea.WindowSizeMsg:
 		m.viewWidth = msg.Width
 		m.viewHeight = msg.Height
@@ -414,6 +430,19 @@ func (m DashboardModel) View() string {
 	// Blank line after header for breathing room
 	b.WriteString("\n")
 	linesUsed++
+
+	// Update banner
+	if m.latestVersion != "" {
+		banner := fmt.Sprintf("📦 Update available: v%s (current: %s)  —  run: ken self-update",
+			m.latestVersion, m.currentVersion)
+		bannerStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("228")).
+			Background(lipgloss.Color("57")).
+			Padding(0, 1)
+		b.WriteString(centerBlock(bannerStyle.Render(banner), m.viewWidth))
+		b.WriteString("\n")
+		linesUsed += 2
+	}
 
 	// Filter row
 	if m.state == dashFiltering || m.filterText != "" {
@@ -1182,4 +1211,35 @@ func truncate(s string, maxLen int) string {
 		return strings.Repeat(".", maxLen)
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func checkForUpdate(currentVersion string) tea.Cmd {
+	return func() tea.Msg {
+		if currentVersion == "dev" {
+			return dashboardUpdateMsg{}
+		}
+
+		type githubRelease struct {
+			TagName string `json:"tag_name"`
+		}
+
+		client := &http.Client{Timeout: 8 * time.Second}
+		resp, err := client.Get("https://api.github.com/repos/diamondBelema/ken/releases/latest")
+		if err != nil {
+			return dashboardUpdateMsg{}
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return dashboardUpdateMsg{}
+		}
+
+		var release githubRelease
+		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+			return dashboardUpdateMsg{}
+		}
+
+		latest := strings.TrimPrefix(release.TagName, "v")
+		return dashboardUpdateMsg{latestVersion: latest}
+	}
 }

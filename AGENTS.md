@@ -6,7 +6,7 @@
 
 ## Project state
 
-All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes (with titles, tags, multi-line textarea editor, markdown rendering), summaries, diagrams (external SVG + mermaid), links, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes (with titles, tags, multi-line textarea editor, markdown rendering), summaries, diagrams (external SVG + mermaid), links, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Update commands: `ken update` (packages), `ken self-update` (ken binary), `ken version`. Dashboard update banner checks GitHub on load. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
 
 ## Tech stack
 
@@ -45,6 +45,9 @@ cmd/ken/
   search.go         # ken search <query> — search registry for packages
   list.go           # ken list — list installed packages
   remove.go         # ken remove <package> — uninstall a package
+  update.go         # ken update [package] — update installed package(s)
+  version.go        # ken version — print version and platform
+  selfupdate.go     # ken self-update — update ken binary from GitHub releases
   package.go        # ken package — create package manifest from local content
   publish.go        # ken publish — publish packages to registry
   launchers.go      # shared launcher helpers (diagram opening, link opening)
@@ -59,6 +62,7 @@ internal/
   diagram/          # mermaid rendering wrapper
   lint/             # content validation (parse errors, duplicate IDs, broken refs)
   registry/         # package registry (client, install, publish, state with file locking)
+  update/           # ken update — download and install package updates
   system/           # cross-platform helpers (file opening, path resolution)
 ```
 

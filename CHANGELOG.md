@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-07-20
+
+### Added
+- `ken version` — prints `ken {version} ({os}/{arch})`
+- `ken self-update` — downloads and installs the latest release binary from GitHub (atomic replace via temp file)
+- `ken update [package]` — updates installed package(s) to latest version from registry
+- Dashboard update banner — shows purple notification when a newer version is available (checked via GitHub releases API on load)
+
+### Fixed
+- Release workflow: corrected binary names (`ken-linux-amd64`, `ken-windows-amd64.exe`) and artifact paths for `download-artifact@v4`
+
+## [1.1.0] - 2025-07-20
+
 ### Added
 - **Registry / marketplace system** — share and install study packages from GitHub:
   - `ken search <query>` — search registry by name, description, or tags
@@ -97,3 +110,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 3: `cmd/ken/flashcards.go` — `ken flashcards <subject>` command
 - XDG-compliant state separation: `~/.local/share/ken/` for all writable state
 - Content directory (`~/Documents/learn/subjects/`) is now 100% read-only
+
+[Unreleased]: https://github.com/diamondBelema/ken/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/diamondBelema/ken/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/diamondBelema/ken/compare/v0.3.1...v1.1.0
+[0.3.1]: https://github.com/diamondBelema/ken/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/diamondBelema/ken/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/diamondBelema/ken/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/diamondBelema/ken/releases/tag/v0.1.0

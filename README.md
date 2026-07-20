@@ -32,12 +32,14 @@ mv ken ~/.local/bin/   # or anywhere on $PATH
 
 Requires Go 1.21+.
 
-### Install study packages
+### Install and update study packages
 
 ```bash
 ken search nucleic        # search the registry
 ken add diamondBelema/nucleic-acid   # install a package
 ken list                  # show installed packages
+ken update --all          # update all installed packages
+ken self-update           # update ken itself to latest release
 ```
 
 ## Quick start
@@ -82,8 +84,11 @@ ken lint                      # validate all content
 | `ken add <package>` | Install a study package |
 | `ken list` | List installed packages |
 | `ken remove <package>` | Uninstall a package |
+| `ken update [package]` | Update installed package(s) to latest version |
 | `ken package` | Generate manifest from local content |
 | `ken publish` | Publish packages to the registry |
+| `ken version` | Print version and platform |
+| `ken self-update` | Update ken itself to latest release |
 
 ## How it works
 

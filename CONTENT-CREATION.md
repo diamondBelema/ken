@@ -7,6 +7,7 @@ This document defines the exact file formats, conventions, and examples needed t
 ```
 ~/Documents/learn/subjects/
 └── <subject-name>/
+    ├── groups.yaml           ← course group divisions (optional)
     ├── concepts/
     │   ├── topic-1.md
     │   └── topic-2.md
@@ -25,7 +26,63 @@ This document defines the exact file formats, conventions, and examples needed t
 - **One file = one set**: each `.md` file contains a set of related concepts, cards, or questions
 - **IDs must be unique per subject** across ALL files (concepts, flashcards, quizzes)
 - **No `progress.json` needed** — ken creates it automatically on first run
+- **`groups.yaml`**: optional structural divisions (e.g., "Bioenergetics", "Enzymes")
 - **`notes/`**: raw readable content — lecture slides, textbook extracts, any markdown you want to read
+
+---
+
+## Course Groups (groups.yaml)
+
+Location: `<subject-name>/groups.yaml` (optional)
+
+Course groups are structural divisions of the subject — think of them as chapters or modules. They help organize the concept tree and enable group-based filtering in `ken map`.
+
+### Format
+
+```yaml
+groups:
+  - id: bioenergetics
+    name: Bioenergetics
+    concepts:
+      - c-atp
+      - c-phosphocreatine
+      - c-creatine-kinase
+  - id: glycolysis
+    name: Glycolysis
+    concepts:
+      - c-glycolysis
+      - c-hexokinase
+      - c-pfk1
+      - c-pyruvate-kinase
+  - id: tca-cycle
+    name: TCA Cycle
+    concepts:
+      - c-pyruvate-dehydrogenase
+      - c-citrate-synthase
+      - c-aconitase
+```
+
+### Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique group ID (lowercase, hyphenated) |
+| `name` | Yes | Human-readable display name |
+| `concepts` | Yes | Array of concept IDs belonging to this group |
+
+### Rules
+
+- A concept can belong to **multiple groups** (e.g., `c-atp` could appear in both "Bioenergetics" and "TCA Cycle")
+- Groups are **structural, not temporal** — they represent the course structure, not study weeks
+- If `groups.yaml` doesn't exist, the subject has no groups (valid — groups are optional)
+- Group IDs must be unique within the subject
+
+### Using Groups
+
+```bash
+ken map <subject> --group bioenergetics   # filter to one group
+ken map <subject>                          # show all concepts
+```
 
 ---
 
@@ -114,7 +171,7 @@ explanation: "Your explanation here"
 
 Location: `concepts/<topic>.md`
 
-Concepts define what the learner is studying. Each concept can have a parent (hierarchy), a description, a summary, diagrams, and links.
+Concepts define what the learner is studying. Each concept can have a parent (hierarchy), a description, a summary, and diagrams.
 
 ### Full Format
 
@@ -192,7 +249,7 @@ ATP via substrate-level phosphorylation. Regulated by:
 - `## <concept-id>` — Concept description (free text, supports markdown)
 - `## <concept-id>:summary` — Summary of the concept (free text, supports markdown)
 
-### Diagrams and Links
+### Diagrams
 
 Add to the frontmatter per concept:
 
@@ -218,16 +275,6 @@ concepts:
       - id: krebs-overview
         label: "Krebs Cycle Overview"
         file: diagrams/krebs.mmd
-    links:
-      - url: "https://www.youtube.com/watch?v=abc123"
-        title: "Glycolysis Explained"
-        type: youtube
-      - url: "https://en.wikipedia.org/wiki/Glycolysis"
-        title: "Wikipedia: Glycolysis"
-        type: website
-      - url: "https://www.ncbi.nlm.nih.gov/books/..."
-        title: "Lehninger Chapter 14"
-        type: reference
 ```
 
 **Diagram fields:**
@@ -238,8 +285,6 @@ concepts:
 | `label` | Yes | Display name |
 | `source` | One of source/file | Inline mermaid syntax |
 | `file` | One of source/file | Path to `.mmd` file relative to subject dir |
-
-**Link types:** `youtube`, `website`, `reference`
 
 ---
 
@@ -520,6 +565,50 @@ Location: `notes/<topic>.md`
 
 These are plain markdown files for reading — lecture slides, textbook extracts, study notes. No YAML frontmatter required, no special structure. Just write markdown.
 
+### Concept Tagging (AI-Generated)
+
+Notes can be tagged with concept annotations for the `ken read` concept tree view. Tags are **AI-generated** during content creation, not written by hand.
+
+Two tag types:
+
+1. **Heading tags** — on markdown headings, define the tree structure
+2. **Paragraph tags** — on any content block, inline navigation markers
+
+**Tag format:** `[c-concept-id]` at end of heading or inline in text
+
+```markdown
+# Glycolysis [c-glycolysis]
+
+Glycolysis is the metabolic pathway that converts glucose into
+pyruvate. It occurs in the cytoplasm and consists of 10 steps.
+
+## Regulation [c-pfk1]
+
+PFK-1 is the key regulatory enzyme. It catalyzes the committed
+step — phosphorylation of fructose-6-phosphate.
+
+Citrate [c-citrate] from TCA cycle inhibits PFK-1. AMP [c-amp]
+activates it when energy is low.
+
+## Energy Yield [c-glycolysis]
+
+Net yield per glucose: 2 ATP and 2 NADH.
+```
+
+**AI tagging rules:**
+- Every heading gets a concept tag by default
+- AI can also tag paragraphs, list items, any content block
+- Tags: `[c-concept-id]` at end of heading or inline in text
+- Heading hierarchy = note-local tree (can differ from global tree)
+- AI tags at subtree level — broad sections tag the parent concept
+- Same concept can appear multiple times in one note (different sections)
+
+**Using concept tags in `ken read`:**
+- `n`/`]`/`tab` — hop to next concept tag
+- `N`/`[`/`shift+tab` — hop to previous concept tag
+- `1`-`9` — jump directly to nth concept tag
+- Tree view shows concept status (familiar, reflected, mastery %)
+
 ### Example
 
 ```markdown
@@ -552,10 +641,19 @@ It occurs in the cytoplasm and does not require oxygen.
 ### Reading Content
 
 ```bash
-ken read <subject>   # browse and read notes with markdown rendering
+ken read <subject>   # browse and read notes with concept tree + hopping
 ```
 
-Use `j`/`k` to navigate between files, `enter` to view content. Markdown is rendered with glamour for beautiful terminal display.
+**Navigation:**
+- `j`/`k` — navigate between files (file list) or scroll (content view)
+- `enter` — open file (file list) or enter content view (tree view)
+- `n`/`]`/`tab` — hop to next concept tag
+- `N`/`[`/`shift+tab` — hop to previous concept tag
+- `1`-`9` — jump to nth concept tag
+- `space`/`pgdn`/`pgup` — page scroll
+- `g`/`G` — top/bottom
+- `esc` — back to previous view
+- `q` — quit
 
 Here's a minimal but complete subject with all file types:
 
@@ -698,6 +796,16 @@ When creating content for ken, verify:
 - [ ] Concept summaries: `## <concept-id>:summary`
 - [ ] Card notes: `## Notes: <card-id>`
 
+### Groups (optional)
+- [ ] If `groups.yaml` exists, it's valid YAML
+- [ ] Group IDs are unique within the subject
+- [ ] All concept IDs in groups reference valid concepts
+
+### Note Tagging (for AI-generated content)
+- [ ] Concept tags use format `[c-concept-id]`
+- [ ] Tags are at end of headings or inline in text
+- [ ] All concept IDs in tags reference valid concepts
+
 ### Validate
 - [ ] Run `ken lint <subject>` — exit code must be 0
 - [ ] Fix all errors before handing off (warnings are OK)
@@ -736,8 +844,6 @@ This matters for agent pipelines: `ken lint biochemistry && ken flashcards bioch
 | Unknown quiz type | error | Not `mcq`, `true_false`, or `fill_blank` |
 | Missing MCQ options | error | Fewer than 2 options |
 | Diagram file missing | error | `file:` path doesn't exist |
-| Link with empty URL | error | Link entry has no URL |
-| Non-http link | warning | URL doesn't start with `http://` or `https://` |
 | Unreferenced concept | warning | No cards or quiz questions link to this concept |
 | Diagram with no source | warning | Diagram entry has neither `source` nor `file` |
 | Empty subject | warning | No content files at all |

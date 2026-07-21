@@ -206,15 +206,7 @@ func buildConceptMarkdown(concept *parser.Concept, conceptMap map[string]parser.
 	}
 
 	if len(concept.Diagrams) > 0 {
-		parts = append(parts, fmt.Sprintf("## Diagrams\n\n%d diagram(s) available (press 'v' in progress view to see ASCII)\n", len(concept.Diagrams)))
-	}
-
-	if len(concept.Links) > 0 {
-		var linkLines []string
-		for _, link := range concept.Links {
-			linkLines = append(linkLines, fmt.Sprintf("- [%s](%s)", link.Title, link.URL))
-		}
-		parts = append(parts, fmt.Sprintf("## Links\n\n%s\n", strings.Join(linkLines, "\n")))
+		parts = append(parts, fmt.Sprintf("## Diagrams\n\n%d diagram(s) available (press 'd' to see ASCII)\n", len(concept.Diagrams)))
 	}
 
 	return strings.Join(parts, "\n")
@@ -313,24 +305,9 @@ func renderConceptInfo(concept *parser.Concept, prog *progress.Progress, concept
 			if d.File != "" {
 				sourceType = "svg"
 			}
-			parts = append(parts, fmt.Sprintf("    • %s (%s)  v:ascii  d:open",
+			parts = append(parts, fmt.Sprintf("    • %s (%s)  d:open",
 				lipgloss.NewStyle().Foreground(colorText).Render(label),
 				lipgloss.NewStyle().Foreground(colorMuted).Render(sourceType)))
-		}
-	}
-
-	// Links
-	if len(concept.Links) > 0 {
-		parts = append(parts, "")
-		parts = append(parts, fmt.Sprintf("  %s",
-			lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(fmt.Sprintf("Links (%d):", len(concept.Links)))))
-		for _, link := range concept.Links {
-			title := link.Title
-			if title == "" {
-				title = link.URL
-			}
-			parts = append(parts, fmt.Sprintf("    • %s  l:open",
-				lipgloss.NewStyle().Foreground(colorText).Render(runeTruncate(title, width-16))))
 		}
 	}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
+	"github.com/diamondBelema/ken/internal/render"
 	"github.com/diamondBelema/ken/internal/study"
 	"github.com/diamondBelema/ken/internal/system"
 )
@@ -41,10 +42,6 @@ type quizDiagramOpenMsg struct {
 type quizDiagramRenderMsg struct {
 	source string
 	id     string
-}
-
-type quizLinkOpenMsg struct {
-	url string
 }
 
 type QuizModel struct {
@@ -284,16 +281,6 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
-			case "l":
-				// Open first link for current concept
-				q := m.session.Current()
-				if q.ConceptID != "" {
-					if concept, ok := m.conceptMap[q.ConceptID]; ok && len(concept.Links) > 0 {
-						return m, tea.Cmd(func() tea.Msg {
-							return quizLinkOpenMsg{url: concept.Links[0].URL}
-						})
-					}
-				}
 			case "s":
 				// Show full summary view
 				q := m.session.Current()
@@ -347,10 +334,6 @@ func (m QuizModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err := diagram.RenderSVGToFile(msg.source, tmpPath); err == nil {
 			system.OpenFile(tmpPath)
 		}
-
-	case quizLinkOpenMsg:
-		// Open link in browser
-		system.OpenURL(msg.url)
 	}
 	return m, nil
 }
@@ -500,17 +483,16 @@ func (m *QuizModel) recordResult() {
 	if q.ConceptID != "" {
 		cs, exists := m.progress.Concepts[q.ConceptID]
 		if !exists {
-			cs = progress.ConceptState{Confidence: 0.5}
+			cs = progress.ConceptState{Mastery: progress.MasteryState{Confidence: 0.5}}
 		}
 		masteryState := mastery.ConceptState{
-			Confidence:     cs.Confidence,
-			LastReviewedAt: cs.LastReviewedAt,
+			Confidence:     cs.Mastery.Confidence,
+			LastReviewedAt: cs.Mastery.LastReviewedAt,
 		}
 		updated := mastery.UpdateFromQuiz(masteryState, m.correct, unixNow())
-		m.progress.Concepts[q.ConceptID] = progress.ConceptState{
-			Confidence:     updated.Confidence,
-			LastReviewedAt: updated.LastReviewedAt,
-		}
+		cs.Mastery.Confidence = updated.Confidence
+		cs.Mastery.LastReviewedAt = updated.LastReviewedAt
+		m.progress.Concepts[q.ConceptID] = cs
 	}
 }
 
@@ -682,9 +664,10 @@ func (m QuizModel) View() string {
 			b.WriteString("\n")
 
 			if q.Explanation != "" {
+				rendered := render.RenderMarkdown(q.Explanation, max(m.width-8, 20))
 				explainBox := lipgloss.NewStyle().
 					Width(max(m.width-8, 20)).
-					Render(notesStyle.Render(q.Explanation))
+					Render(rendered)
 				b.WriteString(cardStyle.Render(explainBox))
 			}
 

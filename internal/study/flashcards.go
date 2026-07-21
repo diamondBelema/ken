@@ -79,7 +79,7 @@ func conceptConfidence(prog *progress.Progress, conceptID string) float64 {
 	if !ok {
 		return 0.5
 	}
-	return cs.Confidence
+	return cs.Mastery.Confidence
 }
 
 func (s *FlashcardSession) Current() parser.Flashcard {

@@ -6,7 +6,7 @@
 
 ## Project state
 
-All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken subjects`, `ken flashcards <subject>`, `ken quiz <subject>`, `ken progress [subject]`, `ken stats`, `ken notes <subject>`, `ken summaries <subject>`, `ken read <subject>`, `ken lint [subject]`. TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes (with titles, tags, multi-line textarea editor, markdown rendering), summaries, diagrams (external SVG + mermaid), links, content reading. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Update commands: `ken update` (packages), `ken self-update` (ken binary), `ken version`. Dashboard update banner checks GitHub on load. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
+All 5 build phases complete. CLI commands working: `ken` (dashboard), `ken flashcards <subject>`, `ken quiz <subject>`, `ken notes <subject>`, `ken read <subject>`, `ken lint [subject]`. Three-layer learning system: `ken map` (familiarity), `ken reflect` (reflection), `ken read` (deep reading), `ken flashcards`/`ken quiz` (mastery). TUI renders with bubbletea. Mastery engine has 7 passing tests. Features implemented: notes (with titles, tags, multi-line textarea editor, markdown rendering), diagrams (external SVG + mermaid), concept hopping in read view, course groups. Registry/marketplace system: `ken search`, `ken add`, `ken list`, `ken remove`, `ken package`, `ken publish`. Update commands: `ken update` (packages), `ken self-update` (ken binary), `ken version`. Dashboard update banner checks GitHub on load. Cross-platform support (Linux + Windows). File locking prevents race conditions on concurrent installs.
 
 ## Tech stack
 
@@ -32,14 +32,12 @@ go test ./...                # unit tests
 ```
 cmd/ken/
   main.go           # cobra root command + dashboard
-  subjects.go       # ken subjects — list subjects with file counts
   flashcards.go     # ken flashcards <subject> — launch TUI study
   quiz.go           # ken quiz <subject> — launch quiz TUI
-  progress.go       # ken progress [subject] — show progress
-  stats.go          # ken stats — aggregate stats
   notes.go          # ken notes <subject> — manage user notes
-  summaries.go      # ken summaries <subject> — manage summaries
   read.go           # ken read <subject> — read lecture notes/content
+  map.go            # ken map <subject> — familiarity layer (concept tree)
+  reflect.go        # ken reflect <subject> — reflection layer (self-explanation)
   lint.go           # ken lint [subject] — validate content files
   add.go            # ken add <package> — install study package from registry
   search.go         # ken search <query> — search registry for packages
@@ -54,8 +52,9 @@ cmd/ken/
 internal/
   discovery/        # scan ~/Documents/learn/subjects/
   mastery/          # Bayesian confidence engine + 7 tests
-  parser/           # YAML frontmatter + markdown body parsing + ken.yaml manifest
-  progress/         # progress state read/write (XDG data dir)
+  parser/           # YAML frontmatter + markdown body parsing + ken.yaml manifest + concept tags
+  progress/         # progress state read/write (XDG data dir) — V2 per-layer model
+  groups/           # course groups parser (groups.yaml)
   study/            # study session logic (flashcard + quiz)
   tui/              # bubbletea models, views, update loops
   render/           # markdown rendering via glamour
@@ -75,11 +74,13 @@ internal/
 - **Unknown quiz types** (`mcq`, `true_false`, `fill_blank` are valid) → warn + skip, never crash.
 - **Anomaly tolerance** in quiz grading: a miss from a concept with confidence > 0.75 uses likelihood 0.45 (assume slip), not 0.3 (true gap). Don't flatten this.
 - **Study is offline.** The study loop (flashcards, quiz, progress) never touches the network. Only registry operations (search, add, publish) use the network.
+- **Three-layer learning model.** Familiarity (`ken map`) → Reflection (`ken reflect`) → Deep Reading (`ken read`) → Mastery (`ken flashcards`/`ken quiz`). Each layer has its own progress state.
 
 ## Data architecture — content vs state separation
 
 **Content (read-only):** `~/Documents/learn/subjects/<subject>/`
-- `concepts/*.md` — concept definitions with hierarchy, diagrams, links, summaries
+- `groups.yaml` — course group divisions (optional)
+- `concepts/*.md` — concept definitions with hierarchy, diagrams, summaries
 - `flashcards/*.md` — flashcard sets
 - `quizzes/*.md` — quiz sets
 - `notes/` — raw readable content (lecture slides, textbook extracts)

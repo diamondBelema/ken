@@ -14,6 +14,7 @@ import (
 	"github.com/diamondBelema/ken/internal/mastery"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
+	"github.com/diamondBelema/ken/internal/render"
 	"github.com/diamondBelema/ken/internal/study"
 	"github.com/diamondBelema/ken/internal/system"
 )
@@ -41,10 +42,6 @@ type diagramOpenMsg struct {
 type diagramRenderMsg struct {
 	source string
 	id     string
-}
-
-type linkOpenMsg struct {
-	url string
 }
 
 type FlashcardModel struct {
@@ -251,16 +248,6 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
-			case "l":
-				// Open first link for current concept
-				card := m.session.Current()
-				if card.ConceptID != "" {
-					if concept, ok := m.conceptMap[card.ConceptID]; ok && len(concept.Links) > 0 {
-						return m, tea.Cmd(func() tea.Msg {
-							return linkOpenMsg{url: concept.Links[0].URL}
-						})
-					}
-				}
 			case "s":
 				// Show full summary view
 				card := m.session.Current()
@@ -315,10 +302,6 @@ func (m FlashcardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err := diagram.RenderSVGToFile(msg.source, tmpPath); err == nil {
 			system.OpenFile(tmpPath)
 		}
-
-	case linkOpenMsg:
-		// Open link in browser
-		system.OpenURL(msg.url)
 	}
 	return m, nil
 }
@@ -431,17 +414,16 @@ func (m *FlashcardModel) gradeCard(level mastery.ConfidenceLevel) FlashcardModel
 	if card.ConceptID != "" {
 		cs, exists := m.progress.Concepts[card.ConceptID]
 		if !exists {
-			cs = progress.ConceptState{Confidence: 0.5}
+			cs = progress.ConceptState{Mastery: progress.MasteryState{Confidence: 0.5}}
 		}
 		masteryState := mastery.ConceptState{
-			Confidence:     cs.Confidence,
-			LastReviewedAt: cs.LastReviewedAt,
+			Confidence:     cs.Mastery.Confidence,
+			LastReviewedAt: cs.Mastery.LastReviewedAt,
 		}
 		updated := mastery.UpdateFromFlashcard(masteryState, level, now)
-		m.progress.Concepts[card.ConceptID] = progress.ConceptState{
-			Confidence:     updated.Confidence,
-			LastReviewedAt: updated.LastReviewedAt,
-		}
+		cs.Mastery.Confidence = updated.Confidence
+		cs.Mastery.LastReviewedAt = updated.LastReviewedAt
+		m.progress.Concepts[card.ConceptID] = cs
 	}
 
 	cs, exists := m.progress.Cards[card.ID]
@@ -567,8 +549,9 @@ func (m FlashcardModel) View() string {
 
 			b.WriteString(cardStyle.Render(cardContent))
 			if card.Notes != "" {
-				b.WriteString("\n  ")
-				b.WriteString(notesStyle.Render(card.Notes))
+				rendered := render.RenderMarkdown(card.Notes, m.width-8)
+				b.WriteString("\n")
+				b.WriteString(rendered)
 			}
 			b.WriteString(renderUserNotes(m.progress, card.ConceptID, card.ID, "card", m.width))
 

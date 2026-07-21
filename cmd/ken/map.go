@@ -6,19 +6,20 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/diamondBelema/ken/internal/parser"
+	"github.com/diamondBelema/ken/internal/groups"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
 	"github.com/diamondBelema/ken/internal/tui"
 	"github.com/spf13/cobra"
 )
 
-var readCmd = &cobra.Command{
-	Use:   "read <subject>",
-	Short: "Read lecture notes and content for a subject",
+var mapCmd = &cobra.Command{
+	Use:   "map <subject>",
+	Short: "Familiarity layer — walk the concept tree and see summaries",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		subject := args[0]
+		groupFilter, _ := cmd.Flags().GetString("group")
 
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -27,15 +28,11 @@ var readCmd = &cobra.Command{
 
 		subjectDir := filepath.Join(home, "Documents", "learn", "subjects")
 
-		files, err := parser.LoadNoteFiles(subjectDir, subject)
-		if err != nil {
-			return fmt.Errorf("failed to load notes: %w", err)
-		}
-
 		progPath, err := progress.SubjectPath(subject)
 		if err != nil {
 			return err
 		}
+
 		prog, err := progress.Load(progPath)
 		if err != nil {
 			return fmt.Errorf("failed to load progress: %w", err)
@@ -47,10 +44,20 @@ var readCmd = &cobra.Command{
 		}
 		progress.InitConcepts(prog, concepts)
 
-		m := tui.NewReadModel(files, prog, subject)
+		subjectPath := filepath.Join(subjectDir, subject)
+		courseGroups, err := groups.Load(subjectPath)
+		if err != nil {
+			return fmt.Errorf("failed to load groups: %w", err)
+		}
+
+		m := tui.NewKenMapModel(subject, concepts, prog, courseGroups, groupFilter)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
+		}
+
+		if err := progress.Save(progPath, prog); err != nil {
+			return fmt.Errorf("failed to save progress: %w", err)
 		}
 
 		return nil
@@ -58,5 +65,6 @@ var readCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(readCmd)
+	mapCmd.Flags().String("group", "", "filter to a specific course group")
+	rootCmd.AddCommand(mapCmd)
 }

@@ -154,7 +154,22 @@ func runRead(subject string) error {
 		return fmt.Errorf("failed to load notes: %w", err)
 	}
 
-	m := tui.NewReadModel(files)
+	progPath, err := progress.SubjectPath(subject)
+	if err != nil {
+		return err
+	}
+	prog, err := progress.Load(progPath)
+	if err != nil {
+		return fmt.Errorf("failed to load progress: %w", err)
+	}
+
+	concepts, err := study.LoadConcepts(subjectDir, subject)
+	if err != nil {
+		return fmt.Errorf("failed to load concepts: %w", err)
+	}
+	progress.InitConcepts(prog, concepts)
+
+	m := tui.NewReadModel(files, prog, subject)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)

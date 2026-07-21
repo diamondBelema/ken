@@ -12,12 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var summariesCmd = &cobra.Command{
-	Use:   "summaries <subject>",
-	Short: "View and manage summaries for a subject",
-	Args:  cobra.ExactArgs(1),
+var reflectCmd = &cobra.Command{
+	Use:   "reflect <subject> [concept-id]",
+	Short: "Reflection layer — type your explanation, then see the canonical answer",
+	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		subject := args[0]
+		var conceptID string
+		if len(args) > 1 {
+			conceptID = args[1]
+		}
+
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("cannot determine home directory: %w", err)
+		}
+
+		subjectDir := filepath.Join(home, "Documents", "learn", "subjects")
 
 		progPath, err := progress.SubjectPath(subject)
 		if err != nil {
@@ -29,14 +40,13 @@ var summariesCmd = &cobra.Command{
 			return fmt.Errorf("failed to load progress: %w", err)
 		}
 
-		home, err := os.UserHomeDir()
+		concepts, err := study.LoadConcepts(subjectDir, subject)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load concepts: %w", err)
 		}
-		subjectsDir := filepath.Join(home, "Documents", "learn", "subjects")
-		concepts, _ := study.LoadConcepts(subjectsDir, subject)
+		progress.InitConcepts(prog, concepts)
 
-		m := tui.NewSummariesModel(prog, concepts, subject)
+		m := tui.NewReflectModel(subject, concepts, prog, conceptID)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
@@ -51,5 +61,5 @@ var summariesCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(summariesCmd)
+	rootCmd.AddCommand(reflectCmd)
 }

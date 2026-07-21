@@ -177,24 +177,6 @@ func LintSubject(subjectsDir, subject string) (Report, error) {
 					}
 				}
 			}
-
-			for _, l := range c.Links {
-				if l.URL == "" {
-					report.Issues = append(report.Issues, Issue{
-						Severity: SeverityError,
-						File:     relPath,
-						ID:       c.ID,
-						Message:  "link with empty URL",
-					})
-				} else if !strings.HasPrefix(l.URL, "http://") && !strings.HasPrefix(l.URL, "https://") {
-					report.Issues = append(report.Issues, Issue{
-						Severity: SeverityWarning,
-						File:     relPath,
-						ID:       c.ID,
-						Message:  fmt.Sprintf("link URL does not start with http:// or https://: %s", l.URL),
-					})
-				}
-			}
 		}
 	}
 

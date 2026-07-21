@@ -23,7 +23,6 @@ const (
 	progressList progressViewState = iota
 	progressDiagramView
 	progressDetail
-	progressLinkOpen
 )
 
 type ProgressModel struct {
@@ -210,10 +209,6 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case "l":
-			if item, ok := m.selectedItem(items); ok && item.linkURL != "" {
-				system.OpenURL(item.linkURL)
-			}
 		case "enter", " ":
 			if item, ok := m.selectedItem(items); ok && item.fullDesc != "" {
 				m.detailName = item.id
@@ -244,9 +239,6 @@ type progressItem struct {
 	diagramFile   string
 	diagramLabel  string
 	diagramIsSVG  bool
-	linkCount     int
-	linkURL       string
-	linkTitle     string
 	depth         int
 }
 
@@ -282,12 +274,12 @@ func (m ProgressModel) collectItems() []progressItem {
 			item := progressItem{id: id, depth: conceptDepth(conceptMap, id)}
 			item.status = "unknown"
 			item.statusColor = lipgloss.NewStyle().Foreground(colorMuted)
-			if cs.LastReviewedAt != nil {
-				if cs.Confidence >= threshold {
-					item.status = fmt.Sprintf("%.0f%% confident", cs.Confidence*100)
+			if cs.Mastery.LastReviewedAt != nil {
+				if cs.Mastery.Confidence >= threshold {
+					item.status = fmt.Sprintf("%.0f%% confident", cs.Mastery.Confidence*100)
 					item.statusColor = lipgloss.NewStyle().Foreground(colorSuccess)
 				} else {
-					item.status = fmt.Sprintf("%.0f%% (needs review)", cs.Confidence*100)
+					item.status = fmt.Sprintf("%.0f%% (needs review)", cs.Mastery.Confidence*100)
 					item.statusColor = lipgloss.NewStyle().Foreground(colorWarning)
 				}
 			}
@@ -328,11 +320,6 @@ func (m ProgressModel) collectItems() []progressItem {
 						}
 					}
 				}
-			}
-			item.linkCount = len(c.Links)
-			if len(c.Links) > 0 {
-				item.linkURL = c.Links[0].URL
-				item.linkTitle = c.Links[0].Title
 			}
 			items = append(items, item)
 		}

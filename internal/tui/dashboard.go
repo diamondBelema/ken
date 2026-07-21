@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/diamondBelema/ken/internal/discovery"
+	"github.com/diamondBelema/ken/internal/groups"
 	"github.com/diamondBelema/ken/internal/parser"
 	"github.com/diamondBelema/ken/internal/progress"
 	"github.com/diamondBelema/ken/internal/study"
@@ -38,6 +39,7 @@ type DashboardModel struct {
 	subjects       []discovery.SubjectInfo
 	progData       map[string]*progress.Progress
 	conceptData    map[string][]parser.Concept
+	groupsData     map[string][]groups.CourseGroup
 	cardCounts     map[string]int
 	quizCounts     map[string]int
 	err            error
@@ -62,6 +64,7 @@ type dashboardLoadedMsg struct {
 	subjects    []discovery.SubjectInfo
 	progData    map[string]*progress.Progress
 	conceptData map[string][]parser.Concept
+	groupsData  map[string][]groups.CourseGroup
 	cardCounts  map[string]int
 	quizCounts  map[string]int
 }
@@ -106,6 +109,7 @@ func (m DashboardModel) Init() tea.Cmd {
 
 			progData := make(map[string]*progress.Progress)
 			conceptData := make(map[string][]parser.Concept)
+			groupsData := make(map[string][]groups.CourseGroup)
 			cardCounts := make(map[string]int)
 			quizCounts := make(map[string]int)
 			for _, s := range subjects {
@@ -125,11 +129,17 @@ func (m DashboardModel) Init() tea.Cmd {
 					progress.InitConcepts(prog, concepts)
 				}
 
+				subjectPath := filepath.Join(subjectsDir, s.Name)
+				courseGroups, err := groups.Load(subjectPath)
+				if err == nil && len(courseGroups) > 0 {
+					groupsData[s.Name] = courseGroups
+				}
+
 				cardCounts[s.Name] = countFlashcards(subjectsDir, s.Name)
 				quizCounts[s.Name] = countQuizzes(subjectsDir, s.Name)
 			}
 
-			return dashboardLoadedMsg{subjects: subjects, progData: progData, conceptData: conceptData, cardCounts: cardCounts, quizCounts: quizCounts}
+			return dashboardLoadedMsg{subjects: subjects, progData: progData, conceptData: conceptData, groupsData: groupsData, cardCounts: cardCounts, quizCounts: quizCounts}
 		},
 		checkForUpdate(m.currentVersion),
 	)
@@ -141,6 +151,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.subjects = msg.subjects
 		m.progData = msg.progData
 		m.conceptData = msg.conceptData
+		m.groupsData = msg.groupsData
 		m.cardCounts = msg.cardCounts
 		m.quizCounts = msg.quizCounts
 	case dashboardErrMsg:
@@ -244,17 +255,17 @@ func (m DashboardModel) handleBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(filtered) > 0 {
 			return m, m.launch(filtered[m.selected].Name, "notes")
 		}
-	case "s":
+	case "v":
 		if len(filtered) > 0 {
-			return m, m.launch(filtered[m.selected].Name, "summaries")
+			return m, m.launch(filtered[m.selected].Name, "reflect")
 		}
 	case "r":
 		if len(filtered) > 0 {
 			return m, m.launch(filtered[m.selected].Name, "read")
 		}
-	case "p":
+	case "m":
 		if len(filtered) > 0 {
-			return m, m.launch(filtered[m.selected].Name, "progress")
+			return m, m.launch(filtered[m.selected].Name, "map")
 		}
 	}
 	return m, nil
@@ -519,7 +530,7 @@ func (m DashboardModel) renderHeader() string {
 			conf := 0.5
 			if prog != nil {
 				if cs, ok := prog.Concepts[c.ID]; ok {
-					conf = cs.Confidence
+					conf = cs.Mastery.Confidence
 				}
 			}
 			switch {
@@ -681,28 +692,52 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 
 	line1 := name + badge + ts
 
-	avg := 0.0
-	count := 0
-	if prog != nil {
+	familiarPct := 0.0
+	reflectPct := 0.0
+	avgConf := 0.0
+	if prog != nil && conceptCount > 0 {
+		familiar := 0
+		reflected := 0
 		for _, cs := range prog.Concepts {
-			avg += cs.Confidence
-			count++
+			if cs.Familiarity.Seen {
+				familiar++
+			}
+			if cs.Reflection.Count > 0 {
+				reflected++
+			}
+			avgConf += cs.Mastery.Confidence
 		}
+		familiarPct = float64(familiar) / float64(conceptCount) * 100
+		reflectPct = float64(reflected) / float64(conceptCount) * 100
+		avgConf = avgConf / float64(conceptCount) * 100
 	}
-	if count > 0 {
-		avg = avg / float64(count) * 100
-	}
+
 	var confStyle lipgloss.Style
 	switch {
-	case avg < 30:
+	case avgConf < 30:
 		confStyle = dashDistWeakStyle
-	case avg < 70:
+	case avgConf < 70:
 		confStyle = dashDistDevStyle
 	default:
 		confStyle = dashDistStrongStyle
 	}
-	line2 := fmt.Sprintf("  %s  %dc·%df·%dq",
-		confStyle.Render(fmt.Sprintf("%.0f%%", avg)),
+
+	familiarStyle := dashDetailStyle
+	if familiarPct >= 70 {
+		familiarStyle = dashDistStrongStyle
+	}
+	reflectStyle := dashDetailStyle
+	if reflectPct >= 70 {
+		reflectStyle = dashDistStrongStyle
+	}
+
+	line2 := fmt.Sprintf("  %s familiar · %s reflected · %s mastery",
+		familiarStyle.Render(fmt.Sprintf("%.0f%%", familiarPct)),
+		reflectStyle.Render(fmt.Sprintf("%.0f%%", reflectPct)),
+		confStyle.Render(fmt.Sprintf("%.0f%%", avgConf)))
+
+	line3 := fmt.Sprintf("  %s  %dc·%df·%dq",
+		dashDetailStyle.Render(fmt.Sprintf("%d notes", noteCount)),
 		conceptCount,
 		m.cardCounts[s.Name],
 		m.quizCounts[s.Name])
@@ -710,7 +745,7 @@ func (m DashboardModel) renderSubjectCard(s discovery.SubjectInfo, selected bool
 	var lines []string
 	lines = append(lines, line1)
 	lines = append(lines, line2)
-	lines = append(lines, "  "+dashDetailStyle.Render(fmt.Sprintf("%d notes", noteCount)))
+	lines = append(lines, line3)
 
 	content := strings.Join(lines, "\n")
 
@@ -765,10 +800,10 @@ func (m DashboardModel) dueCount(subject string) int {
 	now := time.Now().Unix()
 	count := 0
 	for _, cs := range prog.Concepts {
-		if cs.Confidence >= 0.7 {
+		if cs.Mastery.Confidence >= 0.7 {
 			continue
 		}
-		if cs.LastReviewedAt == nil || (now-*cs.LastReviewedAt) > 86400 {
+		if cs.Mastery.LastReviewedAt == nil || (now-*cs.Mastery.LastReviewedAt) > 86400 {
 			count++
 		}
 	}
@@ -807,9 +842,9 @@ func (m DashboardModel) lastStudiedText(subject string) string {
 
 	var latest *int64
 	for _, cs := range prog.Concepts {
-		if cs.LastReviewedAt != nil {
-			if latest == nil || *cs.LastReviewedAt > *latest {
-				latest = cs.LastReviewedAt
+		if cs.Mastery.LastReviewedAt != nil {
+			if latest == nil || *cs.Mastery.LastReviewedAt > *latest {
+				latest = cs.Mastery.LastReviewedAt
 			}
 		}
 	}
@@ -852,17 +887,17 @@ func (m DashboardModel) recentlyStudied() []activityEntry {
 		}
 		for _, c := range concepts {
 			cs, ok := prog.Concepts[c.ID]
-			if !ok || cs.LastReviewedAt == nil {
+			if !ok || cs.Mastery.LastReviewedAt == nil {
 				continue
 			}
 			candidates = append(candidates, candidate{
 				entry: activityEntry{
 					subject:     s.Name,
 					conceptName: c.Name,
-					confidence:  cs.Confidence,
-					updatedAt:   cs.LastReviewedAt,
+					confidence:  cs.Mastery.Confidence,
+					updatedAt:   cs.Mastery.LastReviewedAt,
 				},
-				ts: *cs.LastReviewedAt,
+				ts: *cs.Mastery.LastReviewedAt,
 			})
 		}
 	}
@@ -895,19 +930,19 @@ func (m DashboardModel) comingUp() []activityEntry {
 			if !ok {
 				continue
 			}
-			if cs.Confidence >= 0.7 {
+			if cs.Mastery.Confidence >= 0.7 {
 				continue
 			}
 			entry := activityEntry{
 				subject:     s.Name,
 				conceptName: c.Name,
-				confidence:  cs.Confidence,
-				updatedAt:   cs.LastReviewedAt,
+				confidence:  cs.Mastery.Confidence,
+				updatedAt:   cs.Mastery.LastReviewedAt,
 			}
-			if cs.LastReviewedAt == nil {
+			if cs.Mastery.LastReviewedAt == nil {
 				never = append(never, entry)
-			} else if (now - *cs.LastReviewedAt) > 86400 {
-				reviewed = append(reviewed, candidate{entry: entry, ts: *cs.LastReviewedAt})
+			} else if (now - *cs.Mastery.LastReviewedAt) > 86400 {
+				reviewed = append(reviewed, candidate{entry: entry, ts: *cs.Mastery.LastReviewedAt})
 			}
 		}
 	}
@@ -1117,11 +1152,11 @@ func (m DashboardModel) renderHelpBar() string {
 	if m.state == dashFiltering {
 		return helpStyle.Render("type to filter  ·  enter confirm  ·  esc clear")
 	}
-	return helpStyle.Render("hjkl navigate  ·  enter actions  ·  f/t/n/s/r/p launch  ·  / filter  ·  q quit")
+	return helpStyle.Render("hjkl navigate  ·  enter actions  ·  f/t/n/v/r/m launch  ·  / filter  ·  q quit")
 }
 
 func actionNameForIndex(idx int) string {
-	actions := []string{"flashcards", "quiz", "notes", "summaries", "read", "progress"}
+	actions := []string{"flashcards", "quiz", "notes", "reflect", "read", "map"}
 	if idx >= 0 && idx < len(actions) {
 		return actions[idx]
 	}

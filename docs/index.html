@@ -9,12 +9,9 @@
   <meta property="og:title" content="ken — terminal study harness">
   <meta property="og:description" content="Markdown flashcards. Bayesian confidence tracking. Content stays read-only.">
   <meta property="og:image" content="./ken.jpeg">
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -40,7 +37,7 @@
         <div>
           <div class="hero__kicker">Terminal study harness</div>
           <h1 class="hero__title">ken</h1>
-          <p class="hero__sub">Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only. Progress lives in your state directory.</p>
+          <p class="hero__sub">A three-layer learning system — familiarize, reflect, master. Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only.</p>
 
           <div class="install-pill">
             <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64 && chmod +x ken-linux-amd64 && mv ken-linux-amd64 ken</span>
@@ -89,19 +86,19 @@
               </div>
               <div class="demo__grid">
                 <div class="demo__card demo__card--active">
-                  <div><span class="demo__card-title">anatomy</span> <span class="demo__due">252 due</span> <span class="demo__dim">2h ago</span></div>
-                  <div><span class="demo__pct">50%</span> <span class="demo__dim">170·341·200</span></div>
-                  <div class="demo__dim">2 notes</div>
+                  <div><span class="demo__pill">anatomy</span></div>
+                  <div style="margin-top:8px"><span class="demo__pct">50%</span> <span class="demo__dim">familiar · reflected · mastery</span></div>
+                  <div class="demo__dim" style="margin-top:4px">2 notes</div>
                 </div>
                 <div class="demo__card">
-                  <div><span class="demo__card-title">biochemistry</span> <span class="demo__due">55 due</span> <span class="demo__dim">3h ago</span></div>
-                  <div><span class="demo__pct">50%</span> <span class="demo__dim">56·99·43</span></div>
-                  <div class="demo__dim">0 notes</div>
+                  <div><span class="demo__pill demo__pill--amber">biochemistry</span></div>
+                  <div style="margin-top:8px"><span class="demo__pct">50%</span> <span class="demo__dim">familiar · reflected · mastery</span></div>
+                  <div class="demo__dim" style="margin-top:4px">0 notes</div>
                 </div>
                 <div class="demo__card">
-                  <div><span class="demo__card-title">physiology</span> <span class="demo__due">83 due</span> <span class="demo__dim">3h ago</span></div>
-                  <div><span class="demo__pct">50%</span> <span class="demo__dim">84·176·66</span></div>
-                  <div class="demo__dim">0 notes</div>
+                  <div><span class="demo__pill demo__pill--green">physiology</span></div>
+                  <div style="margin-top:8px"><span class="demo__pct">50%</span> <span class="demo__dim">familiar · reflected · mastery</span></div>
+                  <div class="demo__dim" style="margin-top:4px">0 notes</div>
                 </div>
               </div>
             </div>
@@ -116,21 +113,21 @@
     <div class="container">
       <div class="section-header reveal">
         <div class="section-label">How it works</div>
-        <h2 class="section-heading">Content to study session</h2>
-        <p class="section-intro">Drop Markdown files into a folder. ken reads them, tracks your mastery, and never writes back.</p>
+        <h2 class="section-heading">Three layers of learning</h2>
+        <p class="section-intro">Drop Markdown files into a folder. ken builds a three-layer learning system based on cognitive science. Content stays read-only.</p>
       </div>
       <ol class="steps">
         <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>Write Markdown with YAML frontmatter.</strong> Concepts, flashcards, quizzes — plain .md files in a folder structure. No editor required, no build step.</p>
+          <p class="steps__text"><strong>Familiarize with <code>ken map</code>.</strong> Walk the concept tree, read summaries, mark concepts as seen. No pressure — just exposure to the material.</p>
         </li>
         <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>ken reads the folder, never writes to it.</strong> Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your git repo stays clean.</p>
+          <p class="steps__text"><strong>Reflect with <code>ken reflect</code>.</strong> Type your own explanation before seeing the canonical answer. Self-explanation strengthens retention more than re-reading.</p>
         </li>
         <li class="steps__item reveal">
           <span class="steps__num" aria-hidden="true"></span>
-          <p class="steps__text"><strong>Confidence updates in your state dir.</strong> Every interaction feeds a Bayesian model with time-decay. Mastery lives on concepts, not cards.</p>
+          <p class="steps__text"><strong>Master with <code>ken flashcards</code> & <code>ken quiz</code>.</strong> Active recall under pressure. Bayesian confidence with time-decay tracks what you actually know.</p>
         </li>
       </ol>
     </div>
@@ -144,8 +141,16 @@
       </div>
       <div class="features">
         <article class="feature-card reveal">
+          <h3 class="feature-card__title">Three-layer system</h3>
+          <p class="feature-card__body">Familiarity → Reflection → Mastery. Each layer builds on the last, grounded in cognitive science research.</p>
+        </article>
+        <article class="feature-card reveal">
           <h3 class="feature-card__title">Bayesian confidence</h3>
           <p class="feature-card__body">Tracks what you know, not how many cards you flipped. Concepts resurface based on time-decay and your response history.</p>
+        </article>
+        <article class="feature-card reveal">
+          <h3 class="feature-card__title">Concept maps</h3>
+          <p class="feature-card__body">Hierarchical concept trees with summaries, course groups, and diagram support. See the big picture before drilling down.</p>
         </article>
         <article class="feature-card reveal">
           <h3 class="feature-card__title">Agent-friendly content</h3>
@@ -160,19 +165,19 @@
       <div class="stats reveal">
         <div class="stat">
           <div class="stat__value" data-count-to="310">0</div>
-          <div class="stat__label">Concepts</div>
+          <div class="stat__label">concepts</div>
         </div>
         <div class="stat">
           <div class="stat__value" data-count-to="616">0</div>
-          <div class="stat__label">Flashcards</div>
+          <div class="stat__label">flashcards</div>
         </div>
         <div class="stat">
           <div class="stat__value" data-count-to="309">0</div>
-          <div class="stat__label">Quiz questions</div>
+          <div class="stat__label">quiz questions</div>
         </div>
         <div class="stat">
           <div class="stat__value" data-count-to="5">0</div>
-          <div class="stat__label">Grading levels</div>
+          <div class="stat__label">grading levels</div>
         </div>
       </div>
     </div>
@@ -204,14 +209,21 @@ mv ken ~/.local/bin/</code></pre>
           <a class="install-block__link" href="docs.html">Read the full docs &rarr;</a>
         </div>
       </div>
-      <div class="install-block install-block--registry reveal" style="margin-top: 16px;">
-        <div class="install-block__label">Install study packages</div>
-        <pre><code>ken search nucleic                    # search the registry
-ken add diamondBelema/nucleic-acid   # install a package
-ken update --all                     # update all installed packages
-ken self-update                      # update ken itself
-ken list                             # show installed packages</code></pre>
-        <a class="install-block__link" href="https://github.com/diamondBelema/ken-registry">Browse the registry &rarr;</a>
+
+      <div class="terminal-block reveal">
+        <div class="terminal-block__bar">
+          <span class="terminal-block__dot"></span>
+          <span class="terminal-block__dot"></span>
+          <span class="terminal-block__dot"></span>
+          <span class="terminal-block__label">terminal</span>
+        </div>
+        <div class="terminal-block__body">
+          <span class="terminal-block__cmd" id="pkg-cmd">ken search nucleic && ken add diamondBelema/nucleic-acid</span>
+          <button class="terminal-block__copy" id="pkg-copy-btn" type="button" aria-label="Copy command">Copy</button>
+        </div>
+        <div class="terminal-block__link" style="padding:12px 16px;">
+          <a href="https://github.com/diamondBelema/ken-registry" style="color:var(--text-tertiary);text-decoration:none;font-size:13px;">Browse the registry &rarr;</a>
+        </div>
       </div>
     </div>
   </section>
@@ -230,16 +242,31 @@ ken list                             # show installed packages</code></pre>
 
   <script>
     (function() {
+      // Hero install copy
       var btn = document.getElementById('copy-btn');
       var cmd = document.getElementById('install-cmd');
-      if (!btn || !cmd) return;
-      btn.addEventListener('click', function() {
-        navigator.clipboard.writeText(cmd.textContent.trim()).then(function() {
-          btn.textContent = 'Copied';
-          btn.classList.add('copied');
-          setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      if (btn && cmd) {
+        btn.addEventListener('click', function() {
+          navigator.clipboard.writeText(cmd.textContent.trim()).then(function() {
+            btn.textContent = 'Copied';
+            btn.classList.add('copied');
+            setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+          });
         });
-      });
+      }
+
+      // Package terminal copy
+      var pkgBtn = document.getElementById('pkg-copy-btn');
+      var pkgCmd = document.getElementById('pkg-cmd');
+      if (pkgBtn && pkgCmd) {
+        pkgBtn.addEventListener('click', function() {
+          navigator.clipboard.writeText(pkgCmd.textContent.trim()).then(function() {
+            pkgBtn.textContent = 'Copied';
+            pkgBtn.classList.add('copied');
+            setTimeout(function() { pkgBtn.textContent = 'Copy'; pkgBtn.classList.remove('copied'); }, 2000);
+          });
+        });
+      }
     })();
 
     (function() {
@@ -316,7 +343,7 @@ ken list                             # show installed packages</code></pre>
         }
       }
 
-      // Nav gains a slightly stronger seam once scrolled
+      // Nav scroll state
       var nav = document.querySelector('.nav');
       if (nav) {
         var onScroll = function() {

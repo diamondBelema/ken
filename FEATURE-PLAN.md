@@ -14,7 +14,7 @@ Five new features to make `ken` a full learning harness:
    - Scoped to: a single concept, a list of concepts, or the whole subject
    - Both shown when they exist (content + user labeled separately)
 4. **Diagrams** — mermaid syntax, inline source or external file reference. ASCII quick view + SVG export.
-5. **Links** — reference and open websites/YouTube from concept files
+5. **Links** — reference and open websites/YouTube from concept files (REMOVED in three-layer redesign)
 
 ### Key distinction: notes vs summaries
 
@@ -264,11 +264,20 @@ Both are pure Go — no Chrome, no Node.js, no external runtime.
 
 ```json
 {
-  "format_version": 1,
+  "format_version": 2,
   "concepts": {
     "c-pfk1": {
-      "confidence": 0.62,
-      "last_reviewed_at": 1752835200
+      "familiarity": {
+        "seen": true
+      },
+      "reflection": {
+        "count": 3,
+        "last_at": 1752835200
+      },
+      "mastery": {
+        "confidence": 0.62,
+        "last_reviewed_at": 1752835200
+      }
     }
   },
   "cards": {
@@ -312,12 +321,6 @@ type Diagram struct {
     File   string   // path to .mmd file relative to subject dir (optional)
 }
 
-type Link struct {
-    URL   string
-    Title string
-    Type  string  // "youtube", "website", "reference"
-}
-
 type Concept struct {
     ID          string
     Name        string
@@ -325,12 +328,11 @@ type Concept struct {
     Description string
     Summary     string    // from ## <id>:summary section
     Diagrams    []Diagram
-    Links       []Link
 }
 ```
 
 **Parsing changes:**
-- Extract `diagrams` and `links` arrays from concept frontmatter
+- Extract `diagrams` arrays from concept frontmatter
 - Parse `## <id>:summary` sections alongside `## <id>` description sections
 - Summary is optional — concept works without it
 
@@ -357,6 +359,26 @@ type EntityRef struct {
     Type string   `json:"type"`              // "concept", "concepts", "card", "quiz", "subject", "note"
     ID   string   `json:"id,omitempty"`      // single entity
     IDs  []string `json:"ids,omitempty"`     // multiple entities (for "concepts")
+}
+
+type FamiliarityState struct {
+    Seen bool `json:"seen"`
+}
+
+type ReflectionState struct {
+    Count  int    `json:"count"`
+    LastAt *int64 `json:"last_at,omitempty"`
+}
+
+type MasteryState struct {
+    Confidence     float64 `json:"confidence"`
+    LastReviewedAt *int64  `json:"last_reviewed_at"`
+}
+
+type ConceptState struct {
+    Familiarity FamiliarityState `json:"familiarity"`
+    Reflection  ReflectionState  `json:"reflection"`
+    Mastery     MasteryState     `json:"mastery"`
 }
 
 type Progress struct {
@@ -391,8 +413,8 @@ Note editing/deletion:
 
 After grading a card with a `concept_id`:
 - Show concept summary if available (content summary and/or user summary)
-- Show available diagrams and links for the concept
-- Key bindings: `n` add note (auto-linked to card), `d` open diagram, `l` open link
+- Show available diagrams for the concept
+- Key bindings: `n` add note (auto-linked to card), `d` open diagram
 
 New state: `fcNoteInput`
 - Text input panel at bottom of screen — flashcard view stays visible above
@@ -417,7 +439,6 @@ c-pfk1: 62% confident
     - "Inhibited by ATP and citrate" (linked to concept) [e edit]
     - "Tricky card, review more" (linked to card bch-001) [e edit]
   Diagrams: glycolysis-pathway [v ascii] [d svg]
-  Links: [Glycolysis Explained](youtube) [l open]
 ```
 
 Subject-level summaries shown at the top.
@@ -463,13 +484,14 @@ List all summaries for a subject:
 | `n` | Flashcard/quiz/progress | Open note input (auto-linked to current context) |
 | `d` | Progress view, flashcard back | Open diagram in default viewer (`xdg-open`) |
 | `v` | Progress view, flashcard back | Render ASCII diagram inline |
-| `l` | Progress view, flashcard back | Open link in default browser (`xdg-open`) |
 | `s` | Progress view | Add/edit summary for concept/subject |
 | `e` | Notes/summaries view, progress view | Edit selected note/summary |
 | `x` | Notes/summaries view | Delete selected note/summary (with confirmation) |
 | `f` | Notes/summaries view | Filter by linked entity type |
 | `/` | Notes/summaries view | Search/filter notes |
 | `tab` | Note input | Cycle link target (card → concept → quiz → note → nothing) |
+| `m` | Dashboard | Open ken map (familiarity layer) |
+| `v` | Dashboard | Open ken reflect (reflection layer) |
 
 ---
 
@@ -479,13 +501,16 @@ List all summaries for a subject:
 ken notes <subject>              # list all notes (interactive TUI)
 ken notes <subject> --concept X  # notes linked to concept X
 ken notes <subject> --unlinked   # unlinked notes
-ken summaries <subject>          # list all summaries (interactive TUI)
+ken map <subject>                # familiarity layer (concept tree)
+ken map <subject> --group X      # filter to course group X
+ken reflect <subject>            # reflection layer (self-explanation)
+ken reflect <subject> c-pfk1     # reflect on specific concept
 ```
 
 Existing commands enhanced:
-- `ken flashcards` — `n` opens note input (never stops flow), show summaries/diagrams/links
+- `ken flashcards` — `n` opens note input (never stops flow), show summaries/diagrams
 - `ken quiz` — `n` opens note input after feedback, show summaries
-- `ken progress` — full concept details with notes/summaries/diagrams/links, edit/delete support
+- `ken read` — concept tree view with concept hopping (n/N/1-9)
 
 ---
 
@@ -559,16 +584,25 @@ Existing commands enhanced:
 | File | Changes |
 |---|---|
 | `AGENTS.md` | Fix stale info, add new features |
-| `internal/parser/concept.go` | Add Diagram (Source+File)/Link structs, summary parsing |
-| `internal/progress/progress.go` | Add Note (with note linking)/Summary/EntityRef structs, update Progress |
+| `CONTENT-CREATION.md` | Add groups.yaml, note tagging, remove links |
+| `internal/parser/concept.go` | Add Diagram (Source+File) structs, summary parsing |
+| `internal/parser/document.go` | New: concept tag parsing for ken read |
+| `internal/parser/notes.go` | Note file loading for ken read |
+| `internal/progress/progress.go` | Add Note/Summary/EntityRef structs, V2 per-layer model |
+| `internal/groups/groups.go` | New: course groups parser (groups.yaml) |
 | `internal/diagram/diagram.go` | New: mermaid rendering wrapper (mermaigo + go-mermaid) |
-| `internal/tui/flashcards.go` | Add note input panel (non-interrupting), show summaries/diagrams/links |
+| `internal/tui/flashcards.go` | Add note input panel (non-interrupting), show summaries/diagrams |
 | `internal/tui/quiz.go` | Show summaries (content+user) after feedback, note input |
 | `internal/tui/progress.go` | Show all details, add key bindings, ASCII diagram view, edit/delete |
 | `internal/tui/notes.go` | New: notes list/filter/edit/delete view with vim motions |
-| `internal/tui/summaries.go` | New: summaries list view with vim motions |
-| `internal/tui/styles.go` | Add styles for diagrams, links, notes, summaries |
+| `internal/tui/read.go` | New: concept tree view with hopping, concept tags |
+| `internal/tui/kenmap.go` | New: familiarity layer (concept tree with expand/collapse) |
+| `internal/tui/reflect.go` | New: reflection layer (self-explanation with canonical answer) |
+| `internal/tui/dashboard.go` | Three-layer progress display, course groups, updated keybindings |
+| `internal/tui/styles.go` | Add styles for diagrams, notes, summaries |
 | `cmd/ken/flashcards.go` | Add concept initialization |
 | `cmd/ken/quiz.go` | Add concept initialization |
 | `cmd/ken/notes.go` | New: ken notes command |
-| `cmd/ken/summaries.go` | New: ken summaries command |
+| `cmd/ken/read.go` | Update for concept tree + hopping |
+| `cmd/ken/map.go` | New: ken map command (familiarity layer) |
+| `cmd/ken/reflect.go` | New: ken reflect command (reflection layer) |

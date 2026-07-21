@@ -4,17 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>docs — ken</title>
-  <meta name="description" content="Documentation for ken: install, content format, and CLI reference.">
+  <meta name="description" content="Documentation for ken: install, learning model, content format, CLI reference, and keybindings.">
   <link rel="icon" href="./ken.jpeg" type="image/jpeg">
   <meta property="og:title" content="docs — ken">
-  <meta property="og:description" content="Install, content format, and CLI reference for ken.">
+  <meta property="og:description" content="Install, learning model, content format, and CLI reference for ken.">
   <meta property="og:image" content="./ken.jpeg">
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -39,7 +36,7 @@
       <div class="doc-hero__inner">
         <div>
           <h1 class="doc-hero__title">Documentation</h1>
-          <p class="doc-hero__text">Installation, content format, and command reference.</p>
+          <p class="doc-hero__text">Learning model, content format, CLI reference, and keybindings.</p>
         </div>
         <img class="doc-hero__image" src="./ken.jpeg" alt="ken" width="900" height="900" loading="lazy">
       </div>
@@ -84,18 +81,82 @@ go build -o ken ./cmd/ken</code></pre>
       <h3>Run directly</h3>
       <pre><code>go run ./cmd/ken</code></pre>
 
+      <h2>The learning model</h2>
+
+      <p>ken implements a three-layer learning system based on cognitive science research on desirable difficulties and self-explanation. Each layer builds on the previous one, creating a progression from passive exposure to active recall.</p>
+
+      <h3>Layer 1: Familiarity</h3>
+      <p><strong>Command:</strong> <code>ken map &lt;subject&gt;</code></p>
+      <p>Walk through the concept tree and read summaries. No typing, no pressure — just exposure. This builds initial familiarity with the material. Concepts you've expanded are marked as "seen" in your progress.</p>
+      <p>Supports course group filtering (<code>--group bioenergetics</code>) so you can focus on one section of a course at a time.</p>
+
+      <h3>Layer 2: Reflection</h3>
+      <p><strong>Command:</strong> <code>ken reflect &lt;subject&gt;</code></p>
+      <p>For each concept, type your own explanation before seeing the canonical answer. This leverages the self-explanation effect — generating your own answer before checking strengthens retention more than passive re-reading.</p>
+      <p>Reflections are saved as tagged notes you can review later. The system tracks how many times you've reflected on each concept and when.</p>
+
+      <h3>Layer 3: Mastery</h3>
+      <p><strong>Commands:</strong> <code>ken flashcards &lt;subject&gt;</code>, <code>ken quiz &lt;subject&gt;</code></p>
+      <p>Active recall under pressure. Flashcards use 5-level grading (Unknown → Mastered). Quizzes support multiple-choice, true/false, and fill-in-the-blank. Both feed a Bayesian confidence engine with time-decay that tracks what you actually know.</p>
+
+      <h3>Learning flow</h3>
+      <p>The recommended progression for a new topic:</p>
+      <pre><code>ken map biochemistry          # 1. Familiarize — see the concept tree
+ken reflect biochemistry      # 2. Reflect — type your explanations
+ken read biochemistry         # 3. Deep read — engage with lecture notes
+ken flashcards biochemistry   # 4. Master — active recall, 5-level grading
+ken quiz biochemistry         # 5. Test — quiz under pressure</code></pre>
+
+      <p>You don't have to follow this order strictly — ken doesn't enforce it — but cognitive science research consistently shows that interleaving exposure, self-explanation, and active recall produces stronger long-term retention than any single method alone.</p>
+
+      <h3>Progress model</h3>
+      <p>Progress is stored per-layer, per-concept in <code>~/.local/share/ken/&lt;subject&gt;.json</code>:</p>
+      <pre><code>{
+  "concepts": {
+    "c-glycolysis": {
+      "familiarity": { "seen": true },
+      "reflection":  { "count": 3, "last_at": 1721366400 },
+      "mastery":     { "confidence": 0.72, "last_reviewed_at": 1721366400 }
+    }
+  }
+}</code></pre>
+      <p>Content at <code>~/Documents/learn/subjects/</code> stays read-only. Your git repo stays clean. Progress lives in your state directory.</p>
+
       <h2>Content format</h2>
 
-      <p>Content lives at <code>~/Documents/learn/subjects/&lt;subject&gt;/</code> and is always read-only to ken. Progress is stored at <code>~/.local/share/ken/</code>.</p>
-
+      <h3>Directory structure</h3>
       <pre><code>~/Documents/learn/subjects/
   biochemistry/
+    groups.yaml                    # optional: course group divisions
     concepts/
       glycolysis.md
     flashcards/
       glycolysis.md
     quizzes/
-      glycolysis.md</code></pre>
+      glycolysis.md
+    notes/
+      lecture-01.md                # raw readable content</code></pre>
+
+      <h3>Course groups</h3>
+      <p>Optional file at the subject root that defines structural divisions (e.g. textbook chapters, lecture weeks):</p>
+
+      <div class="file-example">
+        <div class="file-example__name">groups.yaml</div>
+        <pre><code>groups:
+  - id: bioenergetics
+    name: Bioenergetics
+    concepts:
+      - c-atp
+      - c-glycolysis
+      - c-krebs
+  - id: enzymes
+    name: Enzymes
+    concepts:
+      - c-enzyme-kinetics
+      - c-inhibition</code></pre>
+      </div>
+
+      <p>Groups are used by <code>ken map --group &lt;id&gt;</code> to filter the concept tree, and appear as sections in the dashboard progress display.</p>
 
       <h3>Concept file</h3>
       <div class="file-example">
@@ -108,9 +169,14 @@ concepts:
   - id: c-glycolysis
     name: Glycolysis
     parent_id: null
+    summary: "Metabolic pathway that breaks down glucose into pyruvate"
+    diagrams:
+      - type: external
+        src: glycolysis-steps.svg
   - id: c-pfk1
     name: Phosphofructokinase-1
     parent_id: c-glycolysis
+    summary: "Rate-limiting enzyme of glycolysis"
 ---
 
 ## c-glycolysis
@@ -165,10 +231,28 @@ questions:
 ---</code></pre>
       </div>
 
+      <h3>Notes and concept tagging</h3>
+      <p>Notes in the <code>notes/</code> directory are plain markdown. ken parses them for concept references using <code>[c-concept-id]</code> tags, which enable concept hopping in <code>ken read</code>:</p>
+
+      <div class="file-example">
+        <div class="file-example__name">notes/lecture-01.md</div>
+        <pre><code># Glycolysis [c-glycolysis]
+
+Glycolysis is the first step in cellular respiration.
+
+## The PFK-1 Step [c-pfk1]
+
+Phosphofructokinase-1 is the key regulatory enzyme.
+ATP and citrate inhibit PFK-1 [c-pfk1].</code></pre>
+      </div>
+
+      <p>Heading tags create tree nodes in the concept hop sidebar. Inline tags create highlight markers in the text. Both are optional — notes work fine without any tags.</p>
+
       <p>For the full spec — field definitions, YAML quoting rules, and templates — see <a href="https://github.com/diamondBelema/ken/blob/main/CONTENT-CREATION.md">CONTENT-CREATION.md</a>.</p>
 
       <h2>CLI reference</h2>
 
+      <h3>Core commands</h3>
       <table class="cmd-table">
         <thead>
           <tr>
@@ -179,35 +263,35 @@ questions:
         <tbody>
           <tr>
             <td><code>ken</code></td>
-            <td>Launch the dashboard</td>
+            <td>Launch the dashboard — see all subjects at a glance</td>
           </tr>
           <tr>
-            <td><code>ken subjects</code></td>
-            <td>List subjects with counts</td>
+            <td><code>ken map &lt;subject&gt;</code></td>
+            <td>Familiarity layer — walk the concept tree and read summaries</td>
           </tr>
           <tr>
-            <td><code>ken flashcards &lt;subject&gt;</code></td>
-            <td>Study flashcards (5-level grading)</td>
-          </tr>
-          <tr>
-            <td><code>ken quiz &lt;subject&gt;</code></td>
-            <td>Take a quiz (mcq, true/false, fill-blank)</td>
-          </tr>
-          <tr>
-            <td><code>ken progress [subject]</code></td>
-            <td>View concept confidence breakdown</td>
-          </tr>
-          <tr>
-            <td><code>ken notes &lt;subject&gt;</code></td>
-            <td>View and manage notes</td>
-          </tr>
-          <tr>
-            <td><code>ken summaries &lt;subject&gt;</code></td>
-            <td>View and manage summaries</td>
+            <td><code>ken reflect &lt;subject&gt; [concept-id]</code></td>
+            <td>Reflection layer — type your explanation, then see the canonical answer</td>
           </tr>
           <tr>
             <td><code>ken read &lt;subject&gt;</code></td>
-            <td>Read lecture content</td>
+            <td>Deep reading — browse lecture notes with concept hopping</td>
+          </tr>
+          <tr>
+            <td><code>ken flashcards &lt;subject&gt;</code></td>
+            <td>Mastery layer — study flashcards with 5-level grading</td>
+          </tr>
+          <tr>
+            <td><code>ken quiz &lt;subject&gt;</code></td>
+            <td>Mastery layer — quiz with mcq, true/false, and fill-in-the-blank</td>
+          </tr>
+          <tr>
+            <td><code>ken notes &lt;subject&gt;</code></td>
+            <td>View and manage user notes</td>
+          </tr>
+          <tr>
+            <td><code>ken stats</code></td>
+            <td>View detailed stats and confidence trends</td>
           </tr>
           <tr>
             <td><code>ken lint [subject]</code></td>
@@ -224,10 +308,9 @@ questions:
         </tbody>
       </table>
 
-      <p><code>ken lint</code> accepts <code>--json</code> for machine-readable output.</p>
+      <p><code>ken lint</code> accepts <code>--json</code> for machine-readable output. <code>ken map</code> accepts <code>--group &lt;id&gt;</code> to filter by course group. <code>ken reflect</code> accepts an optional concept ID to start at a specific concept.</p>
 
       <h3>Registry commands</h3>
-
       <table class="cmd-table">
         <thead>
           <tr>
@@ -284,6 +367,113 @@ tags: [biochemistry, molecular-biology]</code></pre>
       </div>
 
       <p>See the <a href="https://github.com/diamondBelema/ken-registry">registry</a> for available packages.</p>
+
+      <h2>Keybindings</h2>
+
+      <p>Most views share a common navigation model. Press <code>q</code> to quit any view.</p>
+
+      <h3>Dashboard</h3>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>↑/↓</code> or <code>j/k</code></td><td>Navigate between subjects</td></tr>
+          <tr><td><code>enter</code></td><td>Open action row for the selected subject</td></tr>
+          <tr><td><code>m</code></td><td>Open concept map (familiarity)</td></tr>
+          <tr><td><code>v</code></td><td>Open reflection</td></tr>
+          <tr><td><code>r</code></td><td>Open lecture notes (read)</td></tr>
+          <tr><td><code>c</code></td><td>Start flashcards</td></tr>
+          <tr><td><code>t</code></td><td>Start quiz</td></tr>
+          <tr><td><code>n</code></td><td>Open notes</td></tr>
+          <tr><td><code>d</code></td><td>Open diagram viewer</td></tr>
+          <tr><td><code>/</code></td><td>Filter subjects</td></tr>
+          <tr><td><code>q</code></td><td>Quit</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Concept map (ken map)</h3>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>↑/↓</code> or <code>j/k</code></td><td>Navigate between concepts</td></tr>
+          <tr><td><code>enter</code></td><td>Expand/collapse concept or open summary</td></tr>
+          <tr><td><code>d</code></td><td>View diagrams for selected concept</td></tr>
+          <tr><td><code>g</code></td><td>Mark current concept as seen</td></tr>
+          <tr><td><code>n</code></td><td>Collapse all expanded concepts</td></tr>
+          <tr><td><code>q</code></td><td>Back / quit</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Reflection (ken reflect)</h3>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>tab</code></td><td>Switch between textarea and action buttons</td></tr>
+          <tr><td><code>enter</code></td><td>Submit explanation (when button is focused)</td></tr>
+          <tr><td><code>q</code></td><td>Back / quit</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Concept read (ken read)</h3>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>↑/↓</code> or <code>j/k</code></td><td>Scroll content</td></tr>
+          <tr><td><code>pgup/pgdn</code></td><td>Page up / page down</td></tr>
+          <tr><td><code>ctrl+f/ctrl+b</code></td><td>Half-page forward / back</td></tr>
+          <tr><td><code>ctrl+e/ctrl+y</code></td><td>Scroll down / up one line</td></tr>
+          <tr><td><code>n</code> / <code>]</code> / <code>tab</code></td><td>Jump to next concept tag</td></tr>
+          <tr><td><code>N</code> / <code>[</code> / <code>shift+tab</code></td><td>Jump to previous concept tag</td></tr>
+          <tr><td><code>1</code>-<code>9</code></td><td>Jump to concept by number in sidebar</td></tr>
+          <tr><td><code>q</code></td><td>Back / quit</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Flashcards & Quiz</h3>
+      <table class="cmd-table">
+        <thead>
+          <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>1</code>-<code>5</code></td><td>Grade: Unknown / KnownLittle / KnownFairly / KnownWell / Mastered</td></tr>
+          <tr><td><code>space</code> or <code>enter</code></td><td>Show answer / reveal next card</td></tr>
+          <tr><td><code>n</code> / <code>p</code></td><td>Next / previous question (quiz)</td></tr>
+          <tr><td><code>d</code></td><td>Open diagrams for current concept</td></tr>
+          <tr><td><code>q</code></td><td>Quit session</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Data architecture</h2>
+
+      <p>ken separates content from state:</p>
+
+      <ul>
+        <li><strong>Content (read-only):</strong> <code>~/Documents/learn/subjects/&lt;subject&gt;/</code> — concepts, flashcards, quizzes, notes, groups. ken never writes to this directory.</li>
+        <li><strong>State (writable):</strong> <code>~/.local/share/ken/</code> (Linux) / <code>~/AppData/Local/ken/</code> (Windows) — per-subject progress JSON, registry state, stats.</li>
+      </ul>
+
+      <p>This means:</p>
+      <ul>
+        <li>Git repos containing course materials stay clean (no progress files)</li>
+        <li>Multiple users can study the same content independently</li>
+        <li>Reinstalling or updating content never touches progress</li>
+      </ul>
+
+      <h2>Diagrams</h2>
+
+      <p>ken supports two diagram types, both viewable with <code>d</code> in flashcards, quiz, and map views:</p>
+
+      <ul>
+        <li><strong>External SVG:</strong> Reference an <code>.svg</code> or <code>.png</code> file — ken opens it with your system viewer</li>
+        <li><strong>Mermaid:</strong> Embed mermaid diagrams inline in your concept YAML — ken renders them to ASCII in the terminal or SVG in your system viewer</li>
+      </ul>
 
     </div>
   </main>

@@ -13,6 +13,14 @@ import (
 	"github.com/diamondBelema/ken/internal/parser"
 )
 
+type rawConceptState struct {
+	Confidence     *float64 `json:"confidence"`
+	LastReviewedAt *int64   `json:"last_reviewed_at"`
+	Familiarity    *FamiliarityState `json:"familiarity"`
+	Reflection     *ReflectionState  `json:"reflection"`
+	Mastery        *MasteryState     `json:"mastery"`
+}
+
 const stateDirName = "ken"
 
 func StateDir() (string, error) {
@@ -61,9 +69,24 @@ type Progress struct {
 	NextSummaryID int                     `json:"next_summary_id"`
 }
 
-type ConceptState struct {
+type FamiliarityState struct {
+	Seen bool `json:"seen"`
+}
+
+type ReflectionState struct {
+	Count  int    `json:"count"`
+	LastAt *int64 `json:"last_at,omitempty"`
+}
+
+type MasteryState struct {
 	Confidence     float64 `json:"confidence"`
 	LastReviewedAt *int64  `json:"last_reviewed_at"`
+}
+
+type ConceptState struct {
+	Familiarity FamiliarityState `json:"familiarity"`
+	Reflection  ReflectionState  `json:"reflection"`
+	Mastery     MasteryState     `json:"mastery"`
 }
 
 type CardState struct {
@@ -82,7 +105,7 @@ func Load(path string) (*Progress, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Progress{
-				FormatVersion: 1,
+				FormatVersion: 2,
 				Concepts:      make(map[string]ConceptState),
 				Cards:         make(map[string]CardState),
 				Quizzes:       make(map[string]QuizState),
@@ -95,13 +118,29 @@ func Load(path string) (*Progress, error) {
 		return nil, fmt.Errorf("failed to read progress.json: %w", err)
 	}
 
-	var p Progress
-	if err := json.Unmarshal(data, &p); err != nil {
+	var raw struct {
+		FormatVersion int                        `json:"format_version"`
+		Concepts      map[string]rawConceptState `json:"concepts"`
+		Cards         map[string]CardState       `json:"cards"`
+		Quizzes       map[string]QuizState       `json:"quizzes"`
+		Notes         map[string]Note            `json:"notes,omitempty"`
+		Summaries     map[string]Summary         `json:"summaries,omitempty"`
+		NextNoteID    int                        `json:"next_note_id"`
+		NextSummaryID int                        `json:"next_summary_id"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse progress.json: %w", err)
 	}
 
-	if p.Concepts == nil {
-		p.Concepts = make(map[string]ConceptState)
+	p := &Progress{
+		FormatVersion: raw.FormatVersion,
+		Concepts:      make(map[string]ConceptState),
+		Cards:         raw.Cards,
+		Quizzes:       raw.Quizzes,
+		Notes:         raw.Notes,
+		Summaries:     raw.Summaries,
+		NextNoteID:    raw.NextNoteID,
+		NextSummaryID: raw.NextSummaryID,
 	}
 	if p.Cards == nil {
 		p.Cards = make(map[string]CardState)
@@ -116,11 +155,46 @@ func Load(path string) (*Progress, error) {
 		p.Summaries = make(map[string]Summary)
 	}
 
+	// Convert raw concept states, handling both V1 and V2 formats
+	for id, rc := range raw.Concepts {
+		if rc.Familiarity != nil && rc.Mastery != nil {
+			// V2 format — already has per-layer fields
+			p.Concepts[id] = ConceptState{
+				Familiarity: *rc.Familiarity,
+				Reflection:  defaultReflection(rc.Reflection),
+				Mastery:     *rc.Mastery,
+			}
+		} else if rc.Confidence != nil {
+			// V1 format — flat confidence/last_reviewed_at
+			p.Concepts[id] = ConceptState{
+				Familiarity: FamiliarityState{Seen: false},
+				Reflection:  ReflectionState{Count: 0, LastAt: nil},
+				Mastery: MasteryState{
+					Confidence:     *rc.Confidence,
+					LastReviewedAt: rc.LastReviewedAt,
+				},
+			}
+			p.FormatVersion = 2
+		} else {
+			// Empty/new concept
+			p.Concepts[id] = ConceptState{
+				Familiarity: FamiliarityState{Seen: false},
+				Reflection:  ReflectionState{Count: 0, LastAt: nil},
+				Mastery:     MasteryState{Confidence: 0.5, LastReviewedAt: nil},
+			}
+		}
+	}
+
 	if p.NextNoteID == 0 {
 		p.NextNoteID = computeMaxID(p.Notes, "n-") + 1
 	}
 	if p.NextSummaryID == 0 {
 		p.NextSummaryID = computeMaxID(p.Summaries, "s-") + 1
+	}
+
+	// Ensure V2 format on save
+	if p.FormatVersion < 2 {
+		p.FormatVersion = 2
 	}
 
 	// Migrate notes without titles - auto-generate from first line
@@ -131,7 +205,14 @@ func Load(path string) (*Progress, error) {
 		}
 	}
 
-	return &p, nil
+	return p, nil
+}
+
+func defaultReflection(r *ReflectionState) ReflectionState {
+	if r != nil {
+		return *r
+	}
+	return ReflectionState{Count: 0, LastAt: nil}
 }
 
 func computeMaxID[V any](m map[string]V, prefix string) int {
@@ -174,8 +255,9 @@ func InitConcepts(p *Progress, concepts []parser.Concept) {
 	for _, c := range concepts {
 		if _, exists := p.Concepts[c.ID]; !exists {
 			p.Concepts[c.ID] = ConceptState{
-				Confidence:     0.5,
-				LastReviewedAt: nil,
+				Familiarity: FamiliarityState{Seen: false},
+				Reflection:  ReflectionState{Count: 0, LastAt: nil},
+				Mastery:     MasteryState{Confidence: 0.5, LastReviewedAt: nil},
 			}
 		}
 	}

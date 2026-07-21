@@ -12,12 +12,6 @@ type Diagram struct {
 	File   string
 }
 
-type Link struct {
-	URL   string
-	Title string
-	Type  string
-}
-
 type Concept struct {
 	ID          string
 	Name        string
@@ -25,7 +19,6 @@ type Concept struct {
 	Description string
 	Summary     string
 	Diagrams    []Diagram
-	Links       []Link
 }
 
 type ConceptSet struct {
@@ -92,22 +85,6 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 			}
 		}
 
-		var links []Link
-		if linksRaw, ok := cm["links"].([]interface{}); ok {
-			for _, l := range linksRaw {
-				lm, ok := l.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				link := Link{
-					URL:   getString(lm, "url"),
-					Title: getString(lm, "title"),
-					Type:  getString(lm, "type"),
-				}
-				links = append(links, link)
-			}
-		}
-
 		concepts = append(concepts, Concept{
 			ID:          id,
 			Name:        name,
@@ -115,7 +92,6 @@ func ParseConceptSet(data []byte) (ConceptSet, error) {
 			Description: sections[id],
 			Summary:     sections[id+":summary"],
 			Diagrams:    diagrams,
-			Links:       links,
 		})
 	}
 

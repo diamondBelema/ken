@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ken — terminal study harness</title>
-  <meta name="description" content="A terminal-based spaced-repetition study harness. Markdown flashcards, Bayesian confidence tracking, content stays read-only.">
-  <link rel="icon" href="./ken.jpeg" type="image/jpeg">
-  <meta property="og:title" content="ken — terminal study harness">
-  <meta property="og:description" content="Markdown flashcards. Bayesian confidence tracking. Content stays read-only.">
-  <meta property="og:image" content="./ken.jpeg">
+  <title>ken — terminal learning system</title>
+  <meta name="description" content="Turn Markdown into a complete learning system: familiarity, reflection, deep reading, and mastery with Bayesian confidence tracking.">
+  <link rel="icon" href="https://github.com/user-attachments/assets/e614d980-3bb2-450f-aee0-77a9c12008b9" type="image/png">
+  <meta property="og:title" content="ken — terminal learning system">
+  <meta property="og:description" content="Build your own curriculum in Markdown and master it with a three-layer learning flow.">
+  <meta property="og:image" content="https://github.com/user-attachments/assets/e614d980-3bb2-450f-aee0-77a9c12008b9">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
   <nav class="nav" aria-label="Primary">
     <div class="nav__inner">
       <a href="./" class="nav__brand" aria-current="page">
-        <img src="./ken.jpeg" alt="">
+        <img src="https://github.com/user-attachments/assets/e614d980-3bb2-450f-aee0-77a9c12008b9" alt="ken icon">
         <span>ken</span>
       </a>
       <ul class="nav__links">
@@ -35,18 +35,22 @@
     <div class="container">
       <div class="hero__layout">
         <div>
-          <div class="hero__kicker">Terminal study harness</div>
+          <div class="hero__kicker">Terminal learning system</div>
           <h1 class="hero__title">ken</h1>
-          <p class="hero__sub">A three-layer learning system — familiarize, reflect, master. Markdown flashcards with Bayesian confidence tracking. Your content folder stays read-only.</p>
+          <p class="hero__sub">Your Markdown becomes a complete study engine: map concepts, reflect in your own words, read deeply, and master with confidence-driven repetition.</p>
 
           <div class="install-pill">
-            <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64 && chmod +x ken-linux-amd64 && mv ken-linux-amd64 ken</span>
+            <span class="install-pill__cmd" id="install-cmd">curl -LO https://github.com/diamondBelema/ken/releases/latest/download/ken-linux-amd64 && chmod +x ken-linux-amd64 && mv ken-linux-amd64 ~/.local/bin/ken</span>
             <button class="install-pill__copy" id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+          </div>
+          <div class="hero__actions">
+            <a class="hero__cta hero__cta--primary" href="docs.html">Read documentation</a>
+            <a class="hero__cta" href="https://github.com/diamondBelema/ken/releases/latest" rel="noopener">Download latest release</a>
           </div>
         </div>
 
         <figure class="hero__media">
-          <img src="./ken.jpeg" alt="ken" loading="eager" width="900" height="900">
+          <img src="https://github.com/user-attachments/assets/58c41a77-7e86-4bce-a1c4-6ca5b2482cdc" alt="ken read mode screenshot" loading="eager" width="1919" height="1080">
         </figure>
       </div>
 
@@ -114,7 +118,7 @@
       <div class="section-header reveal">
         <div class="section-label">How it works</div>
         <h2 class="section-heading">Three layers of learning</h2>
-        <p class="section-intro">Drop Markdown files into a folder. ken builds a three-layer learning system based on cognitive science. Content stays read-only.</p>
+        <p class="section-intro">Drop Markdown files into a folder. ken turns them into a keyboard-first system designed for long-term retention.</p>
       </div>
       <ol class="steps">
         <li class="steps__item reveal">
@@ -224,6 +228,33 @@ mv ken ~/.local/bin/</code></pre>
         <div class="terminal-block__link" style="padding:12px 16px;">
           <a href="https://github.com/diamondBelema/ken-registry" style="color:var(--text-tertiary);text-decoration:none;font-size:13px;">Browse the registry &rarr;</a>
         </div>
+      </div>
+    </div>
+  </section>
+  <section class="section-raised">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Screenshots</div>
+        <h2 class="section-heading">See ken in action</h2>
+        <p class="section-intro">Real interface shots from active study sessions.</p>
+      </div>
+      <div class="shot-grid">
+        <figure class="shot-card reveal">
+          <img src="https://github.com/user-attachments/assets/58c41a77-7e86-4bce-a1c4-6ca5b2482cdc" alt="ken read mode screenshot">
+          <figcaption>Deep reading mode with concept-linked notes.</figcaption>
+        </figure>
+        <figure class="shot-card reveal">
+          <img src="https://github.com/user-attachments/assets/055faf5c-40f9-4f12-9ea8-413c077d75bd" alt="ken screenshot 2">
+          <figcaption>Terminal-first interaction built for focus.</figcaption>
+        </figure>
+        <figure class="shot-card reveal">
+          <img src="https://github.com/user-attachments/assets/e614d980-3bb2-450f-aee0-77a9c12008b9" alt="ken brand icon">
+          <figcaption>Primary ken brand icon.</figcaption>
+        </figure>
+        <figure class="shot-card reveal">
+          <img src="https://github.com/user-attachments/assets/a9de388d-5300-4612-ac3f-d6cac6a8efdd" alt="ken alternate icon">
+          <figcaption>Alternate icon variant.</figcaption>
+        </figure>
       </div>
     </div>
   </section>
